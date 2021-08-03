@@ -7,14 +7,29 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
-#include <string>
 #include <vector>
 #include <algorithm>
 #include <map>
-#include "select.h"
+#include <vector>
+#include "select.cpp"
+#include <stdio.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <string.h>
+#include <time.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <netinet/tcp.h>
+
+
 
 #define SIZE 512
-#define IP "192.168.1.135"
+ 
 
 using namespace std;
 
@@ -41,6 +56,7 @@ struct prot_msg
 };
 struct node_data
 {
+    
     int id, ip, port;
     node_data(int id, int ip, int port) : id(id), ip(ip), port(port) {}
 };
@@ -50,6 +66,7 @@ class node
     // Access specifier
 public:
     // Data Members
+    int def_sock = 0;
     int msg_id;
     vector<node_data> sibs;
     map<int, prot_msg> sent;
@@ -64,151 +81,132 @@ public:
     {
     }
 
-    void setid(int id)
-    {
-        this->id = id;
-        int listenfd = 0, listenfd2=0;
-    struct sockaddr_in serv_addr; 
+
+    void user_input(string s){
+        cout<<"input from user:" <<s<<endl;
+        std::vector <std::string> out; 
+        split_str (s, ',', out);
+        string action=out[0];
+        
+         if(action=="connect")
+         {
+            string ad=out[1];
+            cout<<ad<<endl;
+            std::vector <std::string> address;
+            split_str(ad, ':', address); 
+            
+            Connect(address[0], stoi(address[1]));
+         }
+
+        
+    }
+
+    void setid(int id) { 
+    this->id = id;
+    int flag=1;
+    struct sockaddr_in server_socket; 
     int ret, i;
-    int r_port1=5000+id, r_port2=6000 + id;
+    int r_port1=5000+id;
     char buff[1025];
     time_t ticks; 
     
-    listenfd = socket(AF_INET, SOCK_DGRAM, 0);
-    listenfd2 = socket(AF_INET, SOCK_DGRAM, 0);
-    memset(&serv_addr, '0', sizeof(serv_addr));
+    def_sock = socket(AF_INET, SOCK_STREAM, 0);
+     
+    memset(&server_socket, '0', sizeof(server_socket));
 
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    serv_addr.sin_port = htons(r_port1); 
+    server_socket.sin_family = AF_INET;
+    server_socket.sin_addr.s_addr = htonl(INADDR_ANY);
+    server_socket.sin_port = htons(r_port1); 
 
-    bind(listenfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
-    serv_addr.sin_port = htons(r_port2);  
-    bind(listenfd2, (struct sockaddr*)&serv_addr, sizeof(serv_addr)); 
-
+    if(setsockopt(def_sock, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) == -1){
+        perror("Port in use!\n");
+        exit(1);
+    }
+    bind(def_sock, (struct sockaddr*)&server_socket, sizeof(server_socket));
+    //////////////////
+    socklen_t len;
     
-    printf("adding fd1(%d) to monitoring\n", listenfd);
-    add_fd_to_monitoring(listenfd);
-    printf("adding fd2(%d) to monitoring\n", listenfd2);
-    add_fd_to_monitoring(listenfd2);
-    listen(listenfd, 10);
-    listen(listenfd2, 10); 
+    bzero(buff, 1025);
+    len = sizeof(buff);
+    if(getsockopt(def_sock, IPPROTO_TCP, TCP_CONGESTION, buff, &len) != 0){
+        printf("Error at getsockopt!\n");
+        exit(1);
+    }
+    ////////////////
 
-for (i=0; i<10; ++i)
-	  {
+    printf("adding fd1(%d) to monitoring\n", def_sock);
+    add_fd_to_monitoring(def_sock);
+    listen(def_sock, 10);
+    
+    while(1){
 	    printf("waiting for input...\n");
 	    ret = wait_for_input();
+        //this file descriptor got message for you .
 	    printf("fd: %d is ready. reading...\n", ret);
-	    read(ret, buff, 1025);
-	    printf("\"%s\"", buff);
+        //user command
+        
+        if (ret==0){
+        read(ret, buff, 1025);
+        string s(buff);
+        user_input(s);
+        }
+        //from other to me .
+        if (ret==def_sock){
+        cout<<" someone want to connect  me! "<<endl;
+        //if connection come to me i need to accept it first : 
+        int client_socket = accept(def_sock,NULL, NULL);
+        //add_fd_to_monitoring(client_socket);
+        read(client_socket, buff, 1025);
+        cout<<buff<<"is the msg"<<endl;
+        }
+	    
+        
 	}
     }
 
-    void recieve_ack(prot_msg p, int ip, int port)
+    
+    int Connect(string ip_co, int port)
     {
-        int id_msg_reply = stoi(((string)p.payload).substr(0, 4));
-        //if the meassge that the ack answere' was sent.
-        if (sent.find(id_msg_reply) != sent.end()){
-            cout << "nack" << endl;
-        }
-        else
-        {
-            prot_msg sent_p = sent[id_msg_reply];
-            switch (sent_p.Function_ID){
-
-            case 4:
-             //if its answer to my connect msg add him!
-                node_data node(p.Source_ID, ip, port);
-                sibs.push_back(node);
-
-                break;
-            }
-        }
-    }
-
-    //how i get the ip and port from the TCP ?
-    void recieve(prot_msg p, int ip, int port)
-    {
-
-        switch (p.Function_ID){
-        case 1: //ack
-            cout << "ack";
-            recieve_ack(p, ip, port);
-
-            break;
-        case 2: //nack
-            cout << "nack";
-            break;
-        case 4:
-        
-            //connect
-            string s = to_string(p.MSG_ID);
-            prot_msg pack(this->msg_id, this->id, p.Source_ID, 0, 1, s);
-            node_data node(p.Source_ID, ip, port);
-            sibs.push_back(node);
-            sent[p.MSG_ID] = pack;
-            send_packet_TCP(pack, node);
-
-            break;
-        }
-    }
-
-    void Connect(int ip, int port)
-    {
+        //string to char*
+    char *ip = &ip_co[0];
         //if this node doesn't have an id
-        if (this->id == -1)
-        {
-            cout << "nack\n" << endl;
-        }
-        else
-        {
-            //open TCP socket 
-            int network_socket = socket(AF_INET, SOCK_STREAM, 0);
-            if (network_socket == -1)
-            {
-                cout << "nack\n";
-            }
-            else
-            {
-                add_fd_to_monitoring(network_socket); 
-                //specify an address for the socket
-                struct sockaddr_in server;
-                bzero(&server, sizeof(server));
-                //initializing server info
-                server.sin_family = AF_INET;        //type of address
-                server.sin_port = htons(port);      //converts a u_short from host to TCP/IP network byte order
-                server.sin_addr.s_addr = htons(ip); 
-                //connect to remote node
-                if (connect(network_socket, (struct sockaddr *)&server, sizeof(server)) < 0)
-                {
-                    cout<<"nack\n";
-                }
-                cout<<"Connection established!\n";             
-                // build and save msg
-                prot_msg pack(msg_id++, this->id, 0, 0, 4, "");
-                send(network_socket, (void*)&pack, SIZE, 0);
-                sent[pack.MSG_ID] = pack;
-                //prot_msg answer;
-                char * data = "Hi from node1!\n";
-                if(recv(network_socket, data , sizeof(data), 0) < 0){
-                    cout << "nack\n";
-                }
-                // if(answer.Destination_ID != this->id || answer.Source_ID != pack.Destination_ID || answer.Function_ID != 4 ){
-                //     cout<<"nack\n";
-                // }
-                else{
-                    // //send him the packet.
-                    node_data neighbor(id, ip, port);
-                    this->sibs.push_back(neighbor);
-                    //cout<<"New node added to neighbors: " << answer.Source_ID<<"\n";
-                }
-
-            }
-        }
+    if (this->id == -1)cout << "nack\n" << endl;
+    int network_socket = socket(AF_INET, SOCK_STREAM, 0);
+     if (network_socket == -1) {
+        printf("Could not create socket");
+        exit(1);
     }
-
-    void send_packet_TCP(prot_msg p, node_data d)
+    struct sockaddr_in server_socket;
+    bzero(&server_socket, sizeof(server_socket));
+    //initializing  info
+    server_socket.sin_family = AF_INET;//type of address
+    server_socket.sin_port = htons(port);//converts a u_short from host to TCP/IP network byte order
+    // Convert IPv4 and IPv6 addresses from text to binary form
+    if(inet_pton(AF_INET, ip, &server_socket.sin_addr)<=0) 
     {
-        // need to send in TCP .
+        printf("\nInvalid address/ Address not supported \n");
+        return -1;
     }
+    
+    cout<<"my socket is :"<<network_socket<<endl;
+    cout<<"try to connect ip :"<<ip<<" port: "<<port<<endl;
+    //connect mysocket->sock to  address .
+    if (connect(network_socket, (struct sockaddr *)&server_socket, sizeof(server_socket)) < 0)
+    {
+        printf("\nConnection Failed \n");
+        return -1;
+    }
+    cout<<"connect sucseed in socket number "<<endl;
+    char data[7]="hello";
+    if(send(network_socket, data, 7, 0) < 0){
+    printf("Error at sending message!\n");
+            exit(1);
+            }
+    
+  
+    
+    return 0;
+}
+
+
 };

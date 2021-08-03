@@ -47,3 +47,57 @@ for (i=0; i<10; ++i)
 	    printf("\"%s\"", buff);
 	}
 }
+
+
+
+//************************* my fuckk
+
+
+   void recieve_ack(prot_msg p, int ip, int port)
+    {
+        int id_msg_reply = stoi(((string)p.payload).substr(0, 4));
+        //if the meassge that the ack answere' was sent.
+        if (sent.find(id_msg_reply) != sent.end()){
+            cout << "nack" << endl;
+        }
+        else
+        {
+            prot_msg sent_p = sent[id_msg_reply];
+            switch (sent_p.Function_ID){
+
+            case 4:
+             //if its answer to my connect msg add him!
+                node_data node(p.Source_ID, ip, port);
+                sibs.push_back(node);
+
+                break;
+            }
+        }
+    }
+    
+    //how i get the ip and port from the TCP ?
+    void recieve(prot_msg p, int ip, int port)
+    {
+
+        switch (p.Function_ID){
+        case 1: //ack
+            cout << "ack";
+            recieve_ack(p, ip, port);
+
+            break;
+        case 2: //nack
+            cout << "nack";
+            break;
+        case 4:
+        
+            //connect
+            string s = to_string(p.MSG_ID);
+            prot_msg pack(this->msg_id, this->id, p.Source_ID, 0, 1, s);
+            node_data node(p.Source_ID, ip, port);
+            sibs.push_back(node);
+            sent[p.MSG_ID] = pack;
+            
+
+            break;
+        }
+    }

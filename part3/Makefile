@@ -1,16 +1,22 @@
 #!make -f
 
 CXX=clang++-9 
-HEADERS=node.cpp
-OBJECTS=main.o
 
-run: demo
+main.o:main.o 
+
+
+
+
+run:select.h select.c
 	./$^
 
-demo: Demo.o $(OBJECTS)
-	$(CXX) $(CXXFLAGS) $^ -o demo
+main:  
+	clang++ main.cpp -o node
+	./node 
 
+
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) --compile $< -o $@
 
 clean:
 	rm -f *.o demo test
-	rm -f Test2.cpp
