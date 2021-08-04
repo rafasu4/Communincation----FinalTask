@@ -7,6 +7,7 @@ using namespace std;
 
 struct prot_msg
 {
+  
     int msg_id, src_id, dest_id, trail, func_id;
     string payload;
 
@@ -29,6 +30,7 @@ struct prot_msg
         trail = stoi(trail_c);
         func_id = stoi(func_id_c);
         payload = ((string)buff).substr(20);
+        
     }
 
     prot_msg(int msg, int src, int dest, int tr, int func, string pl)
@@ -62,6 +64,19 @@ struct prot_msg
         s += payload;
         return s;
     }
+    int get_id(){
+    return msg_id;}
+     void print(){
+         
+      cout<<"message  id  :"<<msg_id<<endl;
+      cout<<"source   id  :"<<src_id<<endl;
+      cout<<"dest     id  :"<<dest_id<<endl;
+      cout<<"trail    msg :"<<trail<<endl;
+      cout<<"function id  :"<<func_id<<endl;
+      cout<<"pay load     :"<<payload<<endl;
+    }
 
+
+  
    
 };

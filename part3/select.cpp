@@ -5,7 +5,7 @@
 #include <string.h>
 #include <iostream>
 #include <vector>
- 
+
 #include <string>  
 #include <vector>  
 #include <sstream> 
@@ -91,6 +91,7 @@ void split_str( std::string const &str, const char delim,  std::vector <std::str
             }  
         
         }  
+
  //Calculates if and how many zeros need to be added for 4 byte length
     void addZero(string& s, int i)
     {
@@ -107,4 +108,26 @@ void split_str( std::string const &str, const char delim,  std::vector <std::str
             s += "0";
         }
     }
+
+   
+    string addZero( int i)
+    {
+      string s;
+        if (i < 10)
+        {
+            s += "000";
+        }
+        else if (i < 100)
+        {
+            s += "00";
+        }
+        else if (i < 1000)
+        {
+            s += "0";
+        }
+    return s;
+    }
+
+    
+
          

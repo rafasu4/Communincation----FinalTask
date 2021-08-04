@@ -1,29 +1,15 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <iostream>
-#include <vector>
 #include <algorithm>
 #include <map>
 #include <vector>
 #include "select.h"
-#include <stdio.h>
-#include <sys/socket.h>
 #include <arpa/inet.h>
-#include <unistd.h>
-#include <string.h>
 #include <time.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-#include <stdlib.h>
 #include <netinet/tcp.h>
 #include "prot_msg.cpp"
 #define SIZE 512
@@ -44,7 +30,6 @@ public:
     int msg_id;
     map<int, int> sib;
     map<int, prot_msg> sent;
-    vector<prot_msg> message_sent;
     int id;
     string ip;
 
@@ -54,14 +39,16 @@ public:
     /*Receives input from user.*/
     void user_input(string s)
     {
-        std::vector<std::string> out;
+        vector<string> out;
         split_str(s, ',', out);
         string action = out[0];
+        // for(string s:out)cout<<s<<endl;
+        // cout<<out.size();
 
         if (action == "connect")
         {
             string ad = out[1];
-            std::vector<std::string> address;
+            vector<string> address;
             split_str(ad, ':', address);
             if (this->id == -1)
                 cout << "nack\n"
@@ -74,6 +61,15 @@ public:
 
             //setid()
         }
+
+        if (action=="send"){
+            string r = out[3].substr(0, stoi(out[2]));
+          
+            prot_msg data(msg_id++, id, stoi(out[1]), 0, 32, r);
+            mysend(data);
+        }
+
+
     }
 
     void setid(int id)
@@ -125,7 +121,7 @@ public:
         {
             printf("Waiting for connection...\n");
             ret = wait_for_input();
-            //this file descriptor got message for you .
+           
             printf("FD:%d is in use! Reading...\n", ret);
             //user command
             if (ret == 0)
@@ -134,61 +130,103 @@ public:
                 string s(buff);
                 user_input(s);
             }
-            //from other to me .
-            else
+            //only connect .
+            if (ret==def_sock)
             {
-                //if connection come to me i need to accept it first :
+                
                 int client_socket = accept(def_sock, NULL, NULL);
+                //read
                 char buffer[SIZE];
-                //add_fd_to_monitoring(client_socket);
                 read(client_socket, buffer, SIZE);
                 prot_msg message(buffer);
-                string send_back;
-                switch (message.func_id)
-                {
-                //connect
-                case 4:
-                {
-                    addZero(send_back, this->msg_id++);
-                    send_back += to_string(this->msg_id);
-                    addZero(send_back, this->id);
-                    send_back += to_string(this->id);
-                    addZero(send_back, message.src_id);
-                    send_back += to_string(message.src_id);
-                    send_back += "00000001";//trail + fun_id 
-                    send_back += to_string(message.msg_id);
-                    break;
-                }
-                default:
-                    break;
-                }
-                char c[send_back.length()];
-                strcpy(c, send_back.c_str());
-                int id = message.src_id;
-                sib[id] = client_socket;
-                if (send(client_socket, c, 512, 0) < 0)
+                message.print();
+               
+                //build msg_back
+                
+                bzero(buff, SIZE);
+                
+                prot_msg msg(this->msg_id++,this->id,message.src_id,0,1,to_string(message.msg_id));
+                string send_back=msg.msgToStr();
+                
+                strcpy(buff, send_back.c_str());
+                
+
+              
+                //send
+                if (send(client_socket, buff, SIZE, 0) < 0)
                 {
                     printf("nack\n");
                 }
+                // sent[msg.msg_id]=msg;
+                
+                //update 
+                sib[message.src_id] = client_socket;
                 add_fd_to_monitoring(client_socket);
             }
+            if(ret>3){
+                char buffer[SIZE];
+                read(ret, buffer, SIZE);
+                prot_msg message(buffer);
+                message.print();
+
+                
+            }
+            
+            
         }
+
+       
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     void Connect(string ip_co, int port)
     {
         //string to char*
         char *ip = &ip_co[0];
         //if this node doesn't have an id
-        if (this->id == -1)
-            cout << "nack\n"
-                 << endl;
+        if (this->id == -1){
+            cout << "nack\n"<< endl;}
+
         int network_socket = socket(AF_INET, SOCK_STREAM, 0);
         if (network_socket == -1)
         {
-            cout << "nack\n"
-                 << endl;
+            cout << "nack\n"<< endl;
         }
+
         struct sockaddr_in server_socket;
         bzero(&server_socket, sizeof(server_socket));
         //initializing  info
@@ -203,35 +241,73 @@ public:
 
         cout << "My socket is:" << network_socket << endl;
         cout << "Trying to connect IP :" << ip << " Port: " << port << endl;
-        //connect mysocket->sock to  address .
+        //connect mysocket->sock to  addres
+
         if (connect(network_socket, (struct sockaddr *)&server_socket, sizeof(server_socket)) < 0)
         {
             cout << "nack\n"
                  << endl;
         }
         cout << "Connection established! " << endl;
-        prot_msg data(this->msg_id++, this->id, 0, 0, 4, "Hello");
+
+        //build msg
+        prot_msg data(this->msg_id++, this->id, 0, 0, 4, "");
         string s = data.msgToStr();
-        char c[s.length()];
-        strcpy(c, s.c_str());
-        if (send(network_socket, c, 512, 0) < 0)
+        char buff[SIZE];
+        strcpy(buff, s.c_str());
+
+        //send
+        if (send(network_socket, buff, SIZE, 0) < 0)
         {
             cout << "nack\n"
                  << endl;
         }
-        char buff[SIZE];
+        // sent[data.msg_id]=data;
+        
+        
+        //read
         bzero(buff, SIZE);
-        //accept ack
         read(network_socket, buff, SIZE);
         prot_msg ack(buff);
-        if(ack.payload != to_string(this->msg_id - 1)){
+        ack.print();
+        //check
+        if(stoi(ack.payload) != data.msg_id){
+            
             cout<<"nack"<<endl;
         }
         else{
             cout<<"ack"<<endl;
+            //update
             int id = ack.src_id;
             sib[id] = network_socket;
-            add_fd_to_monitoring(network_socket);
+           add_fd_to_monitoring(network_socket);
         }
     }
+
+
+
+
+
+
+
+
+
+
+
+
+     void mysend(prot_msg p){
+            string s = p.msgToStr();
+            char buff[SIZE];
+            strcpy(buff, s.c_str());
+            
+            if (send(sib[p.dest_id], buff, SIZE, 0) < 0)
+        {
+            cout << "nack\n"
+                 << endl;
+        }
+        
+         
+
+
+        }
 };
