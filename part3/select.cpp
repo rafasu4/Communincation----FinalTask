@@ -59,7 +59,6 @@ int add_fd_to_monitoring(const unsigned int fd)
 
 int wait_for_input()
 {
-  cout<<"i check if there is inpput"<<endl;
   int i, retval;
   memcpy(&rfds, &rfds_copy, sizeof(rfds_copy));
   //retval checks if there is any msg waiting in the file descriptors 
@@ -92,4 +91,20 @@ void split_str( std::string const &str, const char delim,  std::vector <std::str
             }  
         
         }  
+ //Calculates if and how many zeros need to be added for 4 byte length
+    void addZero(string& s, int i)
+    {
+        if (i < 10)
+        {
+            s += "000";
+        }
+        else if (i < 100)
+        {
+            s += "00";
+        }
+        else if (i < 1000)
+        {
+            s += "0";
+        }
+    }
          

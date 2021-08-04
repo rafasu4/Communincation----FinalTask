@@ -15,7 +15,6 @@ int main (){
     cout << "Enter node ID: ";
     cin >> temp;
     n1.setid(temp);
-    cout<<"hey"<<endl;
 
    
 

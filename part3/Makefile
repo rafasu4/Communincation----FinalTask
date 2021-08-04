@@ -1,22 +1,8 @@
+
 #!make -f
 
-CXX=clang++-9 
-
-main.o:main.o 
-
-
-
-
-run:select.h select.c
-	./$^
-
-main:  
-	clang++ main.cpp -o node
-	./node 
-
-
-%.o: %.cpp
-	$(CXX) $(CXXFLAGS) --compile $< -o $@
+all:
+	g++ main.cpp node.cpp select.cpp prot_msg.cpp -o main
 
 clean:
-	rm -f *.o demo test
+	rm -f *.o main
