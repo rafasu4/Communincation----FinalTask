@@ -54,7 +54,6 @@ public:
     /*Receives input from user.*/
     void user_input(string s)
     {
-        cout << "input from user:" << s << endl;
         std::vector<std::string> out;
         split_str(s, ',', out);
         string action = out[0];
@@ -62,7 +61,6 @@ public:
         if (action == "connect")
         {
             string ad = out[1];
-            cout << ad << endl;
             std::vector<std::string> address;
             split_str(ad, ':', address);
             if (this->id == -1)
@@ -122,8 +120,8 @@ public:
     void listen_to_fd()
     {
         char buff[1025];
-        int ret = 0;   
-         while (1)
+        int ret = 0;
+        while (1)
         {
             printf("Waiting for connection...\n");
             ret = wait_for_input();
@@ -144,23 +142,40 @@ public:
                 char buffer[SIZE];
                 //add_fd_to_monitoring(client_socket);
                 read(client_socket, buffer, SIZE);
-                cout << "Message received: " << buffer << endl;
-                prot_msg client(buffer);
-                int id = client.src_id;
-                sib[id] = client_socket;
-                char buff[SIZE] = "thank for connecting ,i'm 2 giving you ack";
-                if (send(client_socket, buff, 512, 0) < 0)
+                prot_msg message(buffer);
+                string send_back;
+                switch (message.func_id)
                 {
-                    printf("Error at sending message!\n");
-                    exit(1);
+                //connect
+                case 4:
+                {
+                    addZero(send_back, this->msg_id++);
+                    send_back += to_string(this->msg_id);
+                    addZero(send_back, this->id);
+                    send_back += to_string(this->id);
+                    addZero(send_back, message.src_id);
+                    send_back += to_string(message.src_id);
+                    send_back += "00000001";//trail + fun_id 
+                    send_back += to_string(message.msg_id);
+                    break;
                 }
-
-                //add_fd_to_monitoring(network_socket);
+                default:
+                    break;
+                }
+                char c[send_back.length()];
+                strcpy(c, send_back.c_str());
+                int id = message.src_id;
+                sib[id] = client_socket;
+                if (send(client_socket, c, 512, 0) < 0)
+                {
+                    printf("nack\n");
+                }
+                add_fd_to_monitoring(client_socket);
             }
         }
     }
 
-    int Connect(string ip_co, int port)
+    void Connect(string ip_co, int port)
     {
         //string to char*
         char *ip = &ip_co[0];
@@ -195,7 +210,7 @@ public:
                  << endl;
         }
         cout << "Connection established! " << endl;
-        prot_msg data(1, this->id, 0, 0, 4, "Hello");
+        prot_msg data(this->msg_id++, this->id, 0, 0, 4, "Hello");
         string s = data.msgToStr();
         char c[s.length()];
         strcpy(c, s.c_str());
@@ -207,14 +222,16 @@ public:
         char buff[SIZE];
         bzero(buff, SIZE);
         //accept ack
-        read(network_socket, buff, 1025);
-        cout << buff << endl;
-        int id = 0;
-
-        sib[id] = network_socket;
-        //add_fd_to_monitoring(network_socket);
-
-        //here i need to reacive msg and get the id of the node and add it.
-        return 0;
+        read(network_socket, buff, SIZE);
+        prot_msg ack(buff);
+        if(ack.payload != to_string(this->msg_id - 1)){
+            cout<<"nack"<<endl;
+        }
+        else{
+            cout<<"ack"<<endl;
+            int id = ack.src_id;
+            sib[id] = network_socket;
+            add_fd_to_monitoring(network_socket);
+        }
     }
 };
