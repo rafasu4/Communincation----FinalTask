@@ -64,9 +64,11 @@ public:
 
         if (action=="send"){
             string r = out[3].substr(0, stoi(out[2]));
-          
+
             prot_msg data(msg_id++, id, stoi(out[1]), 0, 32, r);
+            cout<<"i got here"<<endl;
             mysend(data);
+            
         }
 
 
@@ -142,22 +144,9 @@ public:
                 message.print();
                
                 //build msg_back
-                
-                bzero(buff, SIZE);
-                
                 prot_msg msg(this->msg_id++,this->id,message.src_id,0,1,to_string(message.msg_id));
-                string send_back=msg.msgToStr();
+                mysend(msg,client_socket);
                 
-                strcpy(buff, send_back.c_str());
-                
-
-              
-                //send
-                if (send(client_socket, buff, SIZE, 0) < 0)
-                {
-                    printf("nack\n");
-                }
-                // sent[msg.msg_id]=msg;
                 
                 //update 
                 sib[message.src_id] = client_socket;
@@ -249,21 +238,10 @@ public:
                  << endl;
         }
         cout << "Connection established! " << endl;
-
+        char buff[SIZE];
         //build msg
         prot_msg data(this->msg_id++, this->id, 0, 0, 4, "");
-        string s = data.msgToStr();
-        char buff[SIZE];
-        strcpy(buff, s.c_str());
-
-        //send
-        if (send(network_socket, buff, SIZE, 0) < 0)
-        {
-            cout << "nack\n"
-                 << endl;
-        }
-        // sent[data.msg_id]=data;
-        
+        mysend(data,network_socket);
         
         //read
         bzero(buff, SIZE);
@@ -294,20 +272,36 @@ public:
 
 
 
+    void mysend(prot_msg p){
+        mysend(p,sib[p.dest_id]);}
+    void mysend(prot_msg p,int fd){
+            if(fd<4){
+                cout<<"bad fd in send"<<endl;
+            }
 
-     void mysend(prot_msg p){
             string s = p.msgToStr();
             char buff[SIZE];
-            strcpy(buff, s.c_str());
-            
-            if (send(sib[p.dest_id], buff, SIZE, 0) < 0)
+            strcpy(buff, s.c_str()); 
+            if (send(fd, buff, SIZE, 0) < 0)
         {
-            cout << "nack\n"
-                 << endl;
+            cout << "nack\n"<< endl;
         }
-        
-         
-
-
         }
+
+    // prot_msg myread(int fd){
+    //     char buffer[SIZE];
+    //     int a = read(client_socket, buffer, SIZE);
+    //     if (a==-1)cout<<"nack"<<endl;
+    //     if (a==0){
+
+    //         //need to delete socket and tell all the network .
+    //         //need to searche in the map the key of this fd 
+    //         return prot_msg(-1,-1,-1,-1,-1,"");
+    //     }
+    //     prot_msg message(buffer);
+    //     return message;
+
+    // }
+
+    
 };
