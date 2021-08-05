@@ -196,15 +196,16 @@ public:
 
 
 
+
+
  void listen_to_fd()
     {
         char buff[1025];
         int ret = 0;
         while (1)
         {
-            printf("Waiting for connection...\n");
+            printf("Waiting...\n");
             ret = wait_for_input();
-           
             printf("FD:%d is in use! Reading...\n", ret);
             //user command
             if (ret == 0)
@@ -217,18 +218,14 @@ public:
             //only connect .
             if (ret==def_sock)
             {
-                
                 int client_socket = accept(def_sock, NULL, NULL);
                 //read
-                
                 prot_msg message=myread(client_socket);
                 message.print();
                
                 //build msg_back
                 prot_msg msg(this->msg_id++,this->id,message.src_id,0,1,to_string(message.msg_id));
                 mysend(msg,client_socket);
-                
-                
                 
                 //update 
                 sib[message.src_id] = client_socket;
@@ -237,6 +234,7 @@ public:
             if(ret>3){
                 prot_msg message=myread(ret);
                 message.print();
+                handle(message);
                
                 
             }
@@ -247,7 +245,10 @@ public:
        
     }
 
+    void handle (prot_msg p){
 
+
+    }
 
 
     void user_input(string s)
@@ -279,17 +280,44 @@ public:
             string r = out[3].substr(0, stoi(out[2]));
             prot_msg msg(msg_id++, id, stoi(out[1]), 0, 32, r);
 
-            if ( sib.find(msg.dest_id) == sib.end() ) {
-                    cout<<"not your sib , go find a way"<<endl;
-                } else {
-              mysend(msg);
-            }
+            if ( sib.find(msg.dest_id) == sib.end() )
+                {
+                    cout<<"searchig a way ..."<<endl;
+                    find_route(msg.dest_id);
+                } 
+                else 
+                {
+             
+                     mysend(msg);
+                }
             
             
         }
 
 
     }
+
+    void find_route(int dest){
+        
+
+
+            for (auto const& [key, val] : sib)
+            {
+             prot_msg msg(msg_id++,id,key,0,8,to_string(key));
+             mysend(msg,val);
+            }
+        
+
+            
+        
+
+
+
+
+
+    }
+
+
 
     
     
