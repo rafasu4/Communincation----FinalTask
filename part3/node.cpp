@@ -344,31 +344,41 @@ string s =p.payload.substr(0,4);
         a.print();
         int final_dest=stoi(a.payload);
 
-        string path = p.payload.substr(9);
+        string path = p.payload.substr(8);
         int path_len=stoi(p.payload.substr(4,8));
         
         
-        if  ((count(my_disco.begin(), my_disco.end(), id_origin)))
-{
-            cout<<"i found the way to :"<<final_dest<<endl;
-            
-            return 2;
-}
+        
+       
 
-        // //i need to check if it the best way.
-        // //in discover i need to put max value in path len ,
-        // if(path_len<temp_len[final_dest]&&path_len!=0){
-        //     temp_len[final_dest]=path_len;
-        //     temp_route[final_dest]=path;
-        // }
-        // count_discovers[final_dest]=count_discovers[final_dest]-1;
-        // if(count_discovers[final_dest]==0)
-        // {
-        // //it means i got answer from all my discovers and i can return in route the best way i got .
-        // string path_to_route=path+to_string(id);
-        // prot_msg route_back( msg_id++,id,  discober_original_id.src_id,0,32,path_to_route);
-        // mysend(route_back);
-        // }
+            //ok so i got way . lets check it if there is a better way.
+        if(path_len<temp_len[final_dest]&&path_len!=0){
+            temp_len[final_dest]=path_len;
+            temp_route[final_dest]=path;
+        }
+        count_discovers[final_dest]=count_discovers[final_dest]-1;
+
+        // ok if route msg is over it mean we got the best way! 
+        if(count_discovers[final_dest]==0)
+        {
+            //if i"m the root go relly the path!
+        if  ((count(my_disco.begin(), my_disco.end(), id_origin)))
+        {
+            
+            cout<<"i found the way to :"<<final_dest<<endl;
+            cout<<path<<endl;
+            cout<<"go relly it! "<<endl;
+            return 2;
+        }
+        //if i"m not the root pass it 
+        else
+        {
+             //it means i got answer from all my discovers and i can return in route the best way i got .
+        string path_to_route=path+to_string(id);
+        prot_msg route_back( msg_id++,id,  a.src_id,0,32,path_to_route);
+        //mysend(route_back);
+        }
+         }
 
 
 
