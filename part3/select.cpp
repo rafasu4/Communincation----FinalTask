@@ -110,7 +110,7 @@ void split_str( std::string const &str, const char delim,  std::vector <std::str
     }
 
    
-    string addZero( int i)
+    string addZero(int i)
     {
       string s;
         if (i < 10)
@@ -125,7 +125,7 @@ void split_str( std::string const &str, const char delim,  std::vector <std::str
         {
             s += "0";
         }
-    return s;
+    return s+to_string(i);
     }
 
     

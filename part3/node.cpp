@@ -41,6 +41,7 @@ public:
     /*Receives input from user.*/
      void mysend(prot_msg p){
         mysend(p,sib[p.dest_id]);}
+
     void mysend(prot_msg p,int fd){
             if(fd<3){
                 cout<<"bad fd in send"<<endl;
@@ -53,6 +54,8 @@ public:
         {
             cout << "nack\n"<< endl;
         }
+        cout<<"message sent! "<<endl;
+        p.print();
         sent[p.msg_id]=&p;
         
         }
@@ -68,6 +71,8 @@ public:
             return prot_msg(-1,-1,-1,-1,-1,"");
         }
         prot_msg message(buffer);
+        cout<<"message recived!"<<endl;
+       message.print();
         return message;
 
     }
@@ -154,7 +159,7 @@ public:
         //read
         
         prot_msg ack=myread(network_socket);
-        ack.print();
+        
         //check
         if(stoi(ack.payload) != data.msg_id){
             
@@ -204,7 +209,7 @@ public:
         int ret = 0;
         while (1)
         {
-            printf("Waiting...\n");
+            printf("Waiting...\n\n\n");
             ret = wait_for_input();
             printf("FD:%d is in use! Reading...\n", ret);
             //user command
@@ -221,7 +226,7 @@ public:
                 int client_socket = accept(def_sock, NULL, NULL);
                 //read
                 prot_msg message=myread(client_socket);
-                message.print();
+                
                
                 //build msg_back
                 prot_msg msg(this->msg_id++,this->id,message.src_id,0,1,to_string(message.msg_id));
@@ -233,7 +238,7 @@ public:
             }
             if(ret>3){
                 prot_msg message=myread(ret);
-                message.print();
+                
                 handle(message);
                
                 
@@ -244,8 +249,40 @@ public:
 
        
     }
+    void route_found(){}
+    void handle_discover(prot_msg p){
+        int final_dest= stoi(p.payload.substr(20,23));
+        string path=p.payload.substr(24);
+            if ( sib.find(final_dest) == sib.end() )
+                {
+                    cout<<"searchig a way ..."<<endl;
+                    find_route(final_dest,path);
+                } 
+                else 
+                {
+             
+                     route_found();
+                }
+        
 
+
+    }
     void handle (prot_msg p){
+        if(p.func_id==1){
+            //ack
+        }
+        if(p.func_id==2){
+            //nack
+        }
+        if(p.func_id==8){
+             handle_discover(p);
+        }
+        if (p.func_id==32){
+        
+            prot_msg msg(msg_id++,id,p.src_id,0,1,to_string(p.msg_id));
+            mysend(msg);
+            
+        }
 
 
     }
@@ -277,13 +314,15 @@ public:
         }
 
         if (action=="send"){
+            string len=addZero(stoi(out[2]));
+            cout<<stoi(out[2])<< len <<endl;
             string r = out[3].substr(0, stoi(out[2]));
-            prot_msg msg(msg_id++, id, stoi(out[1]), 0, 32, r);
+            prot_msg msg(msg_id++, id, stoi(out[1]), 0, 32, len+r);
 
             if ( sib.find(msg.dest_id) == sib.end() )
                 {
                     cout<<"searchig a way ..."<<endl;
-                    find_route(msg.dest_id);
+                    find_route(msg.dest_id,"");
                 } 
                 else 
                 {
@@ -297,22 +336,15 @@ public:
 
     }
 
-    void find_route(int dest){
-        
+    void find_route(int dest,string path){
+    
 
-            
             for (auto const& x : sib)
             {
              prot_msg msg(msg_id++,id,x.first,0,8,to_string(x.first));
              mysend(msg,x.second);
             }
         
-
-            
-        
-
-
-
 
 
     }
