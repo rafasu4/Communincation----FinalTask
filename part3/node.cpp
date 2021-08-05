@@ -14,6 +14,8 @@
 #include "prot_msg.cpp"
 
 #define SIZE 512
+
+#define MAX 1000
 using namespace std;
 
 struct node_data
@@ -26,13 +28,19 @@ struct node_data
 class node
 {
 public:
+    
     // Data Members
     int def_sock = 0;
     int msg_id;
     map<int, int> sib;
-    map<int, prot_msg*> sent;
+    map<int, string> sent;
+    map<int,int> count_discovers;
+    map<int,string>temp_route;
+    map<int,int> temp_len;
     int id;
     string ip;
+    int color=0;
+    vector<int> my_disco;
 
     /*Default constructor.*/
     node() : id(-1), msg_id(0) {}
@@ -42,9 +50,10 @@ public:
      void mysend(prot_msg p){
         mysend(p,sib[p.dest_id]);}
 
-    void mysend(prot_msg p,int fd){
+    int mysend(prot_msg p,int fd){
             if(fd<3){
                 cout<<"bad fd in send"<<endl;
+                
             }
 
             string s = p.msgToStr();
@@ -53,11 +62,21 @@ public:
             if (send(fd, buff, SIZE, 0) < 0)
         {
             cout << "nack\n"<< endl;
+            return-1;
         }
         cout<<"message sent! "<<endl;
-        p.print();
-        sent[p.msg_id]=&p;
         
+        sent[p.msg_id]=p.msgToStr();
+        p.print();
+        // prot_msg a(sent[p.msg_id].c_str);
+        // string v(sent[p.msg_id]);
+        // char buf[SIZE];
+        // strcpy(buf, v.c_str());
+        // prot_msg a (buf);
+        // a.print();
+
+        
+        return 1;
         }
 
     prot_msg myread(int fd){
@@ -207,12 +226,14 @@ public:
     {
         char buff[1025];
         int ret = 0;
+
+
         while (1)
         {
             printf("Waiting...\n\n\n");
             ret = wait_for_input();
             printf("FD:%d is in use! Reading...\n", ret);
-            //user command
+            
             if (ret == 0)
             {
                 read(ret, buff, 1025);
@@ -237,6 +258,7 @@ public:
                 add_fd_to_monitoring(client_socket);
             }
             if(ret>3){
+
                 prot_msg message=myread(ret);
                 
                 handle(message);
@@ -249,43 +271,10 @@ public:
 
        
     }
-    void route_found(){}
-    void handle_discover(prot_msg p){
-        int final_dest= stoi(p.payload.substr(20,23));
-        string path=p.payload.substr(24);
-            if ( sib.find(final_dest) == sib.end() )
-                {
-                    cout<<"searchig a way ..."<<endl;
-                    find_route(final_dest,path);
-                } 
-                else 
-                {
-             
-                     route_found();
-                }
-        
+   
 
-
-    }
-    void handle (prot_msg p){
-        if(p.func_id==1){
-            //ack
-        }
-        if(p.func_id==2){
-            //nack
-        }
-        if(p.func_id==8){
-             handle_discover(p);
-        }
-        if (p.func_id==32){
-        
-            prot_msg msg(msg_id++,id,p.src_id,0,1,to_string(p.msg_id));
-            mysend(msg);
-            
-        }
-
-
-    }
+   
+    
 
 
     void user_input(string s)
@@ -322,7 +311,7 @@ public:
             if ( sib.find(msg.dest_id) == sib.end() )
                 {
                     cout<<"searchig a way ..."<<endl;
-                    find_route(msg.dest_id,"");
+                    send_dicovers(msg.dest_id,"my");
                 } 
                 else 
                 {
@@ -336,18 +325,148 @@ public:
 
     }
 
-    void find_route(int dest,string path){
-    
+    void send_with_relly(){}
+    int handle_route(prot_msg p){
 
-            for (auto const& x : sib)
-            {
-             prot_msg msg(msg_id++,id,x.first,0,8,to_string(x.first));
-             mysend(msg,x.second);
-            }
+string s =p.payload.substr(0,4);
+
+
+
+
+
+ int id_origin=remove_zero_stoi(s);
+
+        string v(sent[id_origin]);
+        char buf[SIZE];
+        strcpy(buf, v.c_str());
+        prot_msg a (buf);
+        cout<<"this is the origin discover"<<endl;
+        a.print();
+        int final_dest=stoi(a.payload);
+
+        string path = p.payload.substr(9);
+        int path_len=stoi(p.payload.substr(4,8));
         
+        
+        if  ((count(my_disco.begin(), my_disco.end(), id_origin)))
+{
+            cout<<"i found the way to :"<<final_dest<<endl;
+            
+            return 2;
+}
+
+        // //i need to check if it the best way.
+        // //in discover i need to put max value in path len ,
+        // if(path_len<temp_len[final_dest]&&path_len!=0){
+        //     temp_len[final_dest]=path_len;
+        //     temp_route[final_dest]=path;
+        // }
+        // count_discovers[final_dest]=count_discovers[final_dest]-1;
+        // if(count_discovers[final_dest]==0)
+        // {
+        // //it means i got answer from all my discovers and i can return in route the best way i got .
+        // string path_to_route=path+to_string(id);
+        // prot_msg route_back( msg_id++,id,  discober_original_id.src_id,0,32,path_to_route);
+        // mysend(route_back);
+        // }
+
+
+
+
+return 0;
+    }
+    int handle (prot_msg p){
+
+        if(p.func_id==0){
+        cout<<"emptybuffer" <<endl;
+        return 0; 
+        }
+        if(p.func_id==1){
+            //ack
+        }
+        if(p.func_id==2){
+            //nack
+        }
+        if(p.func_id==8){
+            
+             handle_discover(p);
+             }
+             
+        
+
+        if (p.func_id==16){
+
+            handle_route(p);
+        }
+
+        if (p.func_id==32){
+        
+            prot_msg msg(msg_id++,id,p.src_id,0,1,to_string(p.msg_id));
+            mysend(msg);
+            
+        }
+    return 0;
+
+    }
+    ///////////////////////////////HANDLE DISCOVER///////////////
+     int handle_discover(prot_msg p){
+         // if i'm grey i will no send discovers its use less i return route with 0.
+         //how to avoid circle?
+        cout<<"i got handle discover"<<endl;
+        if (color==1){
+            return -1 ;}
+        //if color=0 you open to discover.
+        cout<<p.payload<<endl;
+        int final_dest= stoi(p.payload);
+        cout<<"this is the final_dest i asked you to look"<<final_dest<<endl;
+        
+                if ( sib.find(final_dest) == sib.end() )
+                {
+                    
+                    cout<<"i'l go search..."<<endl;
+                    send_dicovers(final_dest,"");
+
+                } 
+                else 
+                {
+                    cout<<"found a way!!"<<endl;
+                    //i find a way! lets tell him
+                    string s=addZero(p.msg_id)+addZero(2)+addZero(id)+addZero(final_dest);
+                    prot_msg ack_route(msg_id++,id,p.src_id,0,16,s);
+                    mysend(ack_route);
+                }
+        return 0;
 
 
     }
+
+    void send_dicovers(int dest,string flag){
+
+            count_discovers[dest]=0;
+            temp_len[dest]=MAX;
+            //dont look for wat throght me. 
+            
+            for (auto const& x : sib)
+            {
+                  cout<<"i got sibs to search ..."<<endl;
+            prot_msg msg(msg_id++,id,x.first,0,8,to_string(dest));
+            if (mysend(msg,x.second)!=-1){
+                count_discovers[dest]=count_discovers[dest]+1;
+                            }
+
+            //i need to know my when i started dicovers
+            if(flag=="my"){
+            my_disco.push_back(msg.msg_id);
+            }
+            
+            // cout<<"number of discover sent : "<<count_discovers<<endl;
+            color=1;
+    }
+    }
+    //////////////////////////////HANDLE ROUTE///////////////
+
+
+  
 
 
 

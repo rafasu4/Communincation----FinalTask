@@ -8,6 +8,7 @@ void split_str( std::string const &str, const char delim,  std::vector <std::str
 int init();
 void addZero(std::string& s, int i);
 std::string addZero( int i);
+int remove_zero_stoi(std::string s);
 
 //connect,127.0.0.1:5000
 #endif

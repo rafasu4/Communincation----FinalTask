@@ -95,7 +95,8 @@ void split_str( std::string const &str, const char delim,  std::vector <std::str
  //Calculates if and how many zeros need to be added for 4 byte length
     void addZero(string& s, int i)
     {
-        if (i < 10)
+      
+         if (i < 10)
         {
             s += "000";
         }
@@ -107,6 +108,7 @@ void split_str( std::string const &str, const char delim,  std::vector <std::str
         {
             s += "0";
         }
+        
     }
 
    
@@ -128,6 +130,17 @@ void split_str( std::string const &str, const char delim,  std::vector <std::str
     return s+to_string(i);
     }
 
+
+int remove_zero_stoi(string s){
+string ans="";
+for (char c:s){
+if (c!='0'){
+ans=ans+c;
+}
+}
     
 
+int a=stoi(ans);
+return a;
+}
          

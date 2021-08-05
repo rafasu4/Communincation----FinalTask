@@ -11,8 +11,8 @@ struct prot_msg
   
     int msg_id, src_id, dest_id, trail, func_id;
     string payload;
-
-    prot_msg(const char *buff)
+    
+    prot_msg( char *buff)
     {
         string msg_id_c, src_id_c, dest_id_c, trail_c, func_id_c;
         string payload_s;
@@ -77,7 +77,7 @@ struct prot_msg
       cout<<"pay load     :"<<payload<<endl;
     }
 
-
+ 
   
    
 };
