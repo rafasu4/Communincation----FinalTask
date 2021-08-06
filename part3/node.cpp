@@ -39,7 +39,7 @@ public:
     map<int,int> temp_len;
     map<int,vector<string> >recived;
     int id;
-    string ip;
+    
     int color=0;
     vector<int> my_disco;
 
@@ -527,9 +527,27 @@ return 0;
             }
     }
     }
-    //////////////////////////////HANDLE ROUTE///////////////
+    //////////////////////////////BROADCAST///////////////
+    //func_id=128
+    //4 byts of payload the origin sender,
+    //otherpayload - message
+    //terminated: 4 byters 0001, 4 bytes teminated_id. 2 was terminated payload=00010002.
+    void send_broadcast(prot_msg p){
+            for (auto const& x : sib)
+            {
+            
+            cout<<"i got sibs to search ..."<<endl;
+           
+
+            //only if send sucseed
+            if (mysend(p,x.second)!=-1){
+            cout<<"broadcast has been sent"<<endl;
+            }
 
 
+
+    }
+    }
   
 
 
