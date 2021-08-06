@@ -37,6 +37,7 @@ public:
     map<int,int> count_discovers;
     map<int,string>temp_route;
     map<int,int> temp_len;
+    map<int,vector<string> >recived;
     int id;
     string ip;
     int color=0;
@@ -45,7 +46,7 @@ public:
     /*Default constructor.*/
     node() : id(-1), msg_id(0) {}
 
-    /*Receives input from user.*/
+    
     /*Receives input from user.*/
      void mysend(prot_msg p){
         mysend(p,sib[p.dest_id]);}
@@ -68,12 +69,7 @@ public:
         
         sent[p.msg_id]=p.msgToStr();
         p.print();
-        // prot_msg a(sent[p.msg_id].c_str);
-        // string v(sent[p.msg_id]);
-        // char buf[SIZE];
-        // strcpy(buf, v.c_str());
-        // prot_msg a (buf);
-        // a.print();
+      
 
         
         return 1;
@@ -91,7 +87,8 @@ public:
         }
         prot_msg message(buffer);
         cout<<"message recived!"<<endl;
-       message.print();
+        recived[message.msg_id].push_back(message.msgToStr());
+        message.print();
         return message;
 
     }
@@ -307,11 +304,11 @@ public:
             cout<<stoi(out[2])<< len <<endl;
             string r = out[3].substr(0, stoi(out[2]));
             prot_msg msg(msg_id++, id, stoi(out[1]), 0, 32, len+r);
-
+            
             if ( sib.find(msg.dest_id) == sib.end() )
                 {
                     cout<<"searchig a way ..."<<endl;
-                    send_dicovers(msg.dest_id,"my");
+                    send_dicovers(msg.dest_id,"my",-1);
                 } 
                 else 
                 {
@@ -328,31 +325,31 @@ public:
     void send_with_relly(){}
     int handle_route(prot_msg p){
 
-string s =p.payload.substr(0,4);
+        
+        //get id of discover .
+        int id_origin=remove_zero_stoi(p.payload.substr(0,4));
+        //get final dest
+        string final_d=p.payload.substr(p.payload.length()-4,4);
+        int final_dest=(stoi(final_d));
+        
 
-
-
-
-
- int id_origin=remove_zero_stoi(s);
-
-        string v(sent[id_origin]);
-        char buf[SIZE];
-        strcpy(buf, v.c_str());
-        prot_msg a (buf);
-        cout<<"this is the origin discover"<<endl;
+        for(string msg:recived[id_origin]){
+        prot_msg a (msg);
+        
+        
+        
+        //i check if this is a discover to my final dest. so if found what i wanted.
+        if((a.func_id==8)&&remove_zero_stoi(a.payload)==final_dest){
+        cout<<"this is the msg with id_origin lets check if it discover"<<endl;
         a.print();
-        int final_dest=stoi(a.payload);
+        
 
         string path = p.payload.substr(8);
-        int path_len=stoi(p.payload.substr(4,8));
+        int path_len=stoi(p.payload.substr(4,4));
         
-        
-        
-       
-
-            //ok so i got way . lets check it if there is a better way.
+        //ok so i got way . lets check it if there is a better way.
         if(path_len<temp_len[final_dest]&&path_len!=0){
+            cout<<"i entered 3 "<<endl;
             temp_len[final_dest]=path_len;
             temp_route[final_dest]=path;
         }
@@ -364,23 +361,24 @@ string s =p.payload.substr(0,4);
             //if i"m the root go relly the path!
         if  ((count(my_disco.begin(), my_disco.end(), id_origin)))
         {
-            
+        
             cout<<"i found the way to :"<<final_dest<<endl;
             cout<<path<<endl;
             cout<<"go relly it! "<<endl;
-            return 2;
+            
         }
         //if i"m not the root pass it 
         else
         {
+            cout<<"i entered 6 "<<endl;
              //it means i got answer from all my discovers and i can return in route the best way i got .
-        string path_to_route=path+to_string(id);
-        prot_msg route_back( msg_id++,id,  a.src_id,0,32,path_to_route);
-        //mysend(route_back);
+        string path_to_route=addZero(id) +path;
+        prot_msg route_back( msg_id++,id,a.src_id,0,16,path_to_route);
+        mysend(route_back);
         }
          }
 
-
+    }}
 
 
 return 0;
@@ -405,12 +403,12 @@ return 0;
         
 
         if (p.func_id==16){
-
+            cout<<"i entered 8 "<<endl;
             handle_route(p);
         }
 
         if (p.func_id==32){
-        
+            
             prot_msg msg(msg_id++,id,p.src_id,0,1,to_string(p.msg_id));
             mysend(msg);
             
@@ -434,7 +432,7 @@ return 0;
                 {
                     
                     cout<<"i'l go search..."<<endl;
-                    send_dicovers(final_dest,"");
+                    send_dicovers(final_dest,"",p.src_id);
 
                 } 
                 else 
@@ -450,7 +448,7 @@ return 0;
 
     }
 
-    void send_dicovers(int dest,string flag){
+    void send_dicovers(int dest,string flag,int dad){
 
             count_discovers[dest]=0;
             temp_len[dest]=MAX;
@@ -458,11 +456,15 @@ return 0;
             
             for (auto const& x : sib)
             {
-                  cout<<"i got sibs to search ..."<<endl;
+            if(x.first!=dad)
+            {
+            cout<<"i got sibs to search ..."<<endl;
             prot_msg msg(msg_id++,id,x.first,0,8,to_string(dest));
+
+            //only if send sucseed
             if (mysend(msg,x.second)!=-1){
-                count_discovers[dest]=count_discovers[dest]+1;
-                            }
+            count_discovers[dest]=count_discovers[dest]+1;
+            }
 
             //i need to know my when i started dicovers
             if(flag=="my"){
@@ -471,6 +473,7 @@ return 0;
             
             // cout<<"number of discover sent : "<<count_discovers<<endl;
             color=1;
+            }
     }
     }
     //////////////////////////////HANDLE ROUTE///////////////
