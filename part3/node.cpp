@@ -343,7 +343,7 @@ public:
             //if i"m the root go relly the path!
         if  (flag_rly)
         {
-        
+            
             cout<<"i found the way to :"<<final_dest<<endl;
             cout<<path<<endl;
             cout<<"go relly it! "<<endl;
@@ -358,7 +358,13 @@ public:
         string len=addZero(temp_len[final_dest]+1);
         string m=addZero(discover_pack.msg_id)+len+path_to_route;
         prot_msg route_back( msg_id++,id,discover_pack.src_id,0,16,m);
+        string v=discover_pack.msgToStr();
+        cout<<v<<endl;
         mysend(route_back);
+
+            //need to remove discover from saved discover bug i dont know why
+         //remove(recived[discover_pack.msg_id].begin(), recived[discover_pack.msg_id].end() ,v);
+
         }
          }
             //else pass route
@@ -371,7 +377,7 @@ public:
 
 
     int handle_route(prot_msg p){
-
+        vector<string> temp_d;
         
         //get id of discover .
         int id_origin=remove_zero_stoi(p.payload.substr(0,4));
@@ -389,51 +395,22 @@ public:
         if((a.func_id==8)&&remove_zero_stoi(a.payload)==final_dest){
         cout<<"this is the msg with id_origin lets check if it discover"<<endl;
         a.print();
+        // temp_d.push_back(msg);
         handle_route_func(a,p,0,final_dest);
 
-
-    //     string path = p.payload.substr(8);
-    //     int path_len=stoi(p.payload.substr(4,4));
-        
-    //     //ok so i got way . lets check it if there is a better way.
-    //     if(path_len<temp_len[final_dest]&&path_len!=0){
-    //         cout<<"i entered 3 "<<endl;
-    //         temp_len[final_dest]=path_len;
-    //         temp_route[final_dest]=path;
-    //     }
-    //     count_discovers[final_dest]=count_discovers[final_dest]-1;
-
-    //     // ok if route msg is over it mean we got the best way! 
-    //     if(count_discovers[final_dest]==0)
-    //     {
-    //         //if i"m the root go relly the path!
-    //     if  ((count(my_disco.begin(), my_disco.end(), id_origin)))
-    //     {
-        
-    //         cout<<"i found the way to :"<<final_dest<<endl;
-    //         cout<<path<<endl;
-    //         cout<<"go relly it! "<<endl;
-            
-    //     }
-    //     //if i"m not the root pass it 
-    //     else
-    //     {
-    //         cout<<"i entered 6 "<<endl;
-    //          //it means i got answer from all my discovers and i can return in route the best way i got .
-    //     string path_to_route=addZero(id) +temp_route[final_dest];
-    //     string len=addZero(temp_len[final_dest]+1);
-    //     string m=addZero(a.msg_id)+len+path_to_route;
-    //     prot_msg route_back( msg_id++,id,a.src_id,0,16,m);
-    //     mysend(route_back);
-    //     }
-    //      }
-
-    } 
-    }
+        }
+        }
+    //remove descover that was taken care 
+    // for(string msg:temp_d){
+    //     remove(recived[id_origin].begin(), recived[id_origin].end() ,msg);
+    //       } 
+    
 
 
 return 0;
+        
     }
+    
     int handle (prot_msg p){
 
         if(p.func_id==0){
@@ -510,7 +487,7 @@ return 0;
             if(x.first!=dad)
             {
             cout<<"i got sibs to search ..."<<endl;
-            prot_msg msg(msg_id++,id,x.first,0,8,to_string(dest));
+            prot_msg msg(msg_id++,id,x.first,0,8,addZero(dest));
 
             //only if send sucseed
             if (mysend(msg,x.second)!=-1){
