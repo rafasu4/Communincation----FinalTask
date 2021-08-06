@@ -323,43 +323,25 @@ public:
     }
 
     void send_with_relly(){}
-    int handle_route(prot_msg p){
 
-        
-        //get id of discover .
-        int id_origin=remove_zero_stoi(p.payload.substr(0,4));
-        //get final dest
-        string final_d=p.payload.substr(p.payload.length()-4,4);
-        int final_dest=(stoi(final_d));
-        
 
-        for(string msg:recived[id_origin]){
-        prot_msg a (msg);
-        
-        
-        
-        //i check if this is a discover to my final dest. so if found what i wanted.
-        if((a.func_id==8)&&remove_zero_stoi(a.payload)==final_dest){
-        cout<<"this is the msg with id_origin lets check if it discover"<<endl;
-        a.print();
-        
+    int handle_route_func(prot_msg discover_pack,prot_msg route_pack,int flag_rly,int final_dest){
 
-        string path = p.payload.substr(8);
-        int path_len=stoi(p.payload.substr(4,4));
-        
-        //ok so i got way . lets check it if there is a better way.
-        if(path_len<temp_len[final_dest]&&path_len!=0){
+            //sum len.
+            string path = route_pack.payload.substr(8);
+            int path_len=stoi(route_pack.payload.substr(4,4));
+            if(path_len<temp_len[final_dest]&&path_len!=0){
             cout<<"i entered 3 "<<endl;
             temp_len[final_dest]=path_len;
             temp_route[final_dest]=path;
-        }
-        count_discovers[final_dest]=count_discovers[final_dest]-1;
+            }
+            count_discovers[final_dest]=count_discovers[final_dest]-1;
 
-        // ok if route msg is over it mean we got the best way! 
+            
         if(count_discovers[final_dest]==0)
         {
             //if i"m the root go relly the path!
-        if  ((count(my_disco.begin(), my_disco.end(), id_origin)))
+        if  (flag_rly)
         {
         
             cout<<"i found the way to :"<<final_dest<<endl;
@@ -370,15 +352,84 @@ public:
         //if i"m not the root pass it 
         else
         {
-            cout<<"i entered 6 "<<endl;
+        cout<<"i need to pass route "<<endl;
              //it means i got answer from all my discovers and i can return in route the best way i got .
-        string path_to_route=addZero(id) +path;
-        prot_msg route_back( msg_id++,id,a.src_id,0,16,path_to_route);
+        string path_to_route=addZero(id) +temp_route[final_dest];
+        string len=addZero(temp_len[final_dest]+1);
+        string m=addZero(discover_pack.msg_id)+len+path_to_route;
+        prot_msg route_back( msg_id++,id,discover_pack.src_id,0,16,m);
         mysend(route_back);
         }
          }
+            //else pass route
 
-    }}
+
+
+
+        return 0;
+    }
+
+
+    int handle_route(prot_msg p){
+
+        
+        //get id of discover .
+        int id_origin=remove_zero_stoi(p.payload.substr(0,4));
+        //get final dest
+        string final_d=p.payload.substr(p.payload.length()-4,4);
+        int final_dest=(stoi(final_d));
+        int my_search=(count(my_disco.begin(), my_disco.end(), id_origin));
+        //if its my route send it .
+        if(my_search) handle_route_func(sent[id_origin],p,1,final_dest);
+
+
+        for(string msg:recived[id_origin]){
+        prot_msg a (msg);
+        //i check if this is a discover to my final dest. so if found what i wanted.
+        if((a.func_id==8)&&remove_zero_stoi(a.payload)==final_dest){
+        cout<<"this is the msg with id_origin lets check if it discover"<<endl;
+        a.print();
+        handle_route_func(a,p,0,final_dest);
+
+
+    //     string path = p.payload.substr(8);
+    //     int path_len=stoi(p.payload.substr(4,4));
+        
+    //     //ok so i got way . lets check it if there is a better way.
+    //     if(path_len<temp_len[final_dest]&&path_len!=0){
+    //         cout<<"i entered 3 "<<endl;
+    //         temp_len[final_dest]=path_len;
+    //         temp_route[final_dest]=path;
+    //     }
+    //     count_discovers[final_dest]=count_discovers[final_dest]-1;
+
+    //     // ok if route msg is over it mean we got the best way! 
+    //     if(count_discovers[final_dest]==0)
+    //     {
+    //         //if i"m the root go relly the path!
+    //     if  ((count(my_disco.begin(), my_disco.end(), id_origin)))
+    //     {
+        
+    //         cout<<"i found the way to :"<<final_dest<<endl;
+    //         cout<<path<<endl;
+    //         cout<<"go relly it! "<<endl;
+            
+    //     }
+    //     //if i"m not the root pass it 
+    //     else
+    //     {
+    //         cout<<"i entered 6 "<<endl;
+    //          //it means i got answer from all my discovers and i can return in route the best way i got .
+    //     string path_to_route=addZero(id) +temp_route[final_dest];
+    //     string len=addZero(temp_len[final_dest]+1);
+    //     string m=addZero(a.msg_id)+len+path_to_route;
+    //     prot_msg route_back( msg_id++,id,a.src_id,0,16,m);
+    //     mysend(route_back);
+    //     }
+    //      }
+
+    } 
+    }
 
 
 return 0;
