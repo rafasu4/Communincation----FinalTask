@@ -1,6 +1,7 @@
 #include "iostream"
 #include "select.h"
-
+#include <string>
+#include <cstring>
 
 #define SIZE 512
 
@@ -11,7 +12,18 @@ struct prot_msg
   
     int msg_id, src_id, dest_id, trail, func_id;
     string payload;
-    
+    prot_msg (string s){            
+        char buf[SIZE];
+        strcpy(buf, s.c_str());
+        prot_msg a(buf);
+        msg_id=a.msg_id;
+        src_id=a.src_id;
+        dest_id=a.dest_id;
+        trail=a.trail;
+        func_id=a.func_id;
+        payload=a.payload;
+
+    }
     prot_msg( char *buff)
     {
         string msg_id_c, src_id_c, dest_id_c, trail_c, func_id_c;

@@ -36,15 +36,15 @@ public:
     map<int, int> count_discovers;
     map<int, string> temp_route;
     map<int, int> temp_len;
+    map<int, vector<string>> recived;
     int id;
-    string ip;
+
     int color = 0;
     vector<int> my_disco;
 
     /*Default constructor.*/
     node() : id(-1), msg_id(0) {}
 
-    /*Receives input from user.*/
     /*Receives input from user.*/
     void mysend(prot_msg p)
     {
@@ -71,12 +71,6 @@ public:
 
         sent[p.msg_id] = p.msgToStr();
         p.print();
-        // prot_msg a(sent[p.msg_id].c_str);
-        // string v(sent[p.msg_id]);
-        // char buf[SIZE];
-        // strcpy(buf, v.c_str());
-        // prot_msg a (buf);
-        // a.print();
 
         return 1;
     }
@@ -96,9 +90,11 @@ public:
         }
         prot_msg message(buffer);
         cout << "message recived!" << endl;
+        recived[message.msg_id].push_back(message.msgToStr());
         message.print();
         return message;
     }
+
     void setid(int id)
     {
         this->id = id;
@@ -138,75 +134,69 @@ public:
         listen(def_sock, 10);
         listen_to_fd();
     }
+
     void Connect(string ip_co, int port)
     {
-        try
+        //string to char*
+        char *ip = &ip_co[0];
+        //if this node doesn't have an id
+        if (this->id == -1)
         {
-            //string to char*
-            char *ip = &ip_co[0];
-            //if this node doesn't have an id
-            if (this->id == -1)
-            {
-                cout << "nack\n"
-                     << endl;
-            }
-
-            int network_socket = socket(AF_INET, SOCK_STREAM, 0);
-            if (network_socket == -1)
-            {
-                cout << "nack\n"
-                     << endl;
-            }
-
-            struct sockaddr_in server_socket;
-            bzero(&server_socket, sizeof(server_socket));
-            //initializing  info
-            server_socket.sin_family = AF_INET;   //type of address
-            server_socket.sin_port = htons(port); //converts a u_short from host to TCP/IP network byte order
-            // Convert IPv4 and IPv6 addresses from text to binary form
-            if (inet_pton(AF_INET, ip, &server_socket.sin_addr) <= 0)
-            {
-                cout << "nack\n"
-                     << endl;
-            }
-
-            cout << "My socket is:" << network_socket << endl;
-            cout << "Trying to connect IP :" << ip << " Port: " << port << endl;
-            //connect mysocket->sock to  addres
-
-            if (connect(network_socket, (struct sockaddr *)&server_socket, sizeof(server_socket)) < 0)
-            {
-                cout << "nack\n"
-                     << endl;
-            }
-            cout << "Connection established! " << endl;
-            char buff[SIZE];
-            //build msg
-            prot_msg data(this->msg_id++, this->id, 0, 0, 4, "");
-            mysend(data, network_socket);
-
-            //read
-
-            prot_msg ack = myread(network_socket);
-
-            //check
-            if (stoi(ack.payload) != data.msg_id)
-            {
-
-                cout << "nack" << endl;
-            }
-            else
-            {
-                cout << "ack" << endl;
-                //update
-                int id = ack.src_id;
-                sib[id] = network_socket;
-                add_fd_to_monitoring(network_socket);
-            }
+            cout << "nack\n"
+                 << endl;
         }
-        catch (exception e)
+
+        int network_socket = socket(AF_INET, SOCK_STREAM, 0);
+        if (network_socket == -1)
         {
+            cout << "nack\n"
+                 << endl;
+        }
+
+        struct sockaddr_in server_socket;
+        bzero(&server_socket, sizeof(server_socket));
+        //initializing  info
+        server_socket.sin_family = AF_INET;   //type of address
+        server_socket.sin_port = htons(port); //converts a u_short from host to TCP/IP network byte order
+        // Convert IPv4 and IPv6 addresses from text to binary form
+        if (inet_pton(AF_INET, ip, &server_socket.sin_addr) <= 0)
+        {
+            cout << "nack\n"
+                 << endl;
+        }
+
+        cout << "My socket is:" << network_socket << endl;
+        cout << "Trying to connect IP :" << ip << " Port: " << port << endl;
+        //connect mysocket->sock to  addres
+
+        if (connect(network_socket, (struct sockaddr *)&server_socket, sizeof(server_socket)) < 0)
+        {
+            cout << "nack\n"
+                 << endl;
+        }
+        cout << "Connection established! " << endl;
+        char buff[SIZE];
+        //build msg
+        prot_msg data(this->msg_id++, this->id, 0, 0, 4, "");
+        mysend(data, network_socket);
+
+        //read
+
+        prot_msg ack = myread(network_socket);
+
+        //check
+        if (stoi(ack.payload) != data.msg_id)
+        {
+
             cout << "nack" << endl;
+        }
+        else
+        {
+            cout << "ack" << endl;
+            //update
+            int id = ack.src_id;
+            sib[id] = network_socket;
+            add_fd_to_monitoring(network_socket);
         }
     }
 
@@ -272,13 +262,12 @@ public:
             Connect(address[0], stoi(address[1]));
         }
 
-        if (action == "setid")
+        else if (action == "setid")
         {
-
             this->setid(stoi(out[1]));
         }
 
-        if (action == "send")
+        else if (action == "send")
         {
             string len = addZero(stoi(out[2]));
             cout << stoi(out[2]) << len << endl;
@@ -288,67 +277,126 @@ public:
             if (sib.find(msg.dest_id) == sib.end())
             {
                 cout << "searchig a way ..." << endl;
-                send_dicovers(msg.dest_id, "my");
+                send_dicovers(msg.dest_id, "my", -1);
             }
             else
             {
+                mysend(msg);
+            }
+        }
+            // else if(action == "relay"){
+            //     string dest = addZero(stoi(out[1]));
+            //     string num_of_msgs = addZero(stoi(out[2]));
+            //     relay(dest, num_of_msgs );
+            // }
 
+        
+    }
+
+    void relay(string dest, prot_msg relay_msg, prot_msg msg)
+    {
+        int ttl = relay_msg.trail;
+        int send_to = stoi(dest);
+        //if there are no more relaying and current node isn't connected to dest
+        if(ttl == 1 && !sib.count(send_to) ){ cout << "nack" <<endl;}
+        else{
+            //if this is the last relaying
+            if(ttl == 1){
+                this->mysend(msg);
+            }
+            else{
+                relay_msg.trail--;
+                string payload = relay_msg.payload;
+                string next_in_line = payload.substr(payload.length() - 4);//getting the last part of the payload - the next node to relay
+                payload = payload.substr(0,payload.length() - 4);//removing the next node to realy from the path
+                relay_msg.payload = payload;
+                relay_msg.dest_id =(stoi(next_in_line));
+                mysend(relay_msg);
                 mysend(msg);
             }
         }
     }
 
-    void send_with_relly() {}
-    int handle_route(prot_msg p)
+    int handle_route_func(prot_msg discover_pack, prot_msg route_pack, int flag_rly, int final_dest)
     {
 
-        string s = p.payload.substr(0, 4);
-
-        int id_origin = remove_zero_stoi(s);
-
-        string v(sent[id_origin]);
-        char buf[SIZE];
-        strcpy(buf, v.c_str());
-        prot_msg a(buf);
-        cout << "this is the origin discover" << endl;
-        a.print();
-        int final_dest = stoi(a.payload);
-
-        string path = p.payload.substr(8);
-        int path_len = stoi(p.payload.substr(4, 8));
-
-        //ok so i got way . lets check it if there is a better way.
+        //sum len.
+        string path = route_pack.payload.substr(8);
+        int path_len = stoi(route_pack.payload.substr(4, 4));
         if (path_len < temp_len[final_dest] && path_len != 0)
         {
+            cout << "i entered 3 " << endl;
             temp_len[final_dest] = path_len;
             temp_route[final_dest] = path;
         }
         count_discovers[final_dest] = count_discovers[final_dest] - 1;
 
-        // ok if route msg is over it mean we got the best way!
         if (count_discovers[final_dest] == 0)
         {
             //if i"m the root go relly the path!
-            if ((count(my_disco.begin(), my_disco.end(), id_origin)))
+            if (flag_rly)
             {
 
                 cout << "i found the way to :" << final_dest << endl;
                 cout << path << endl;
                 cout << "go relly it! " << endl;
-                return 2;
             }
             //if i"m not the root pass it
             else
             {
+                cout << "i need to pass route " << endl;
                 //it means i got answer from all my discovers and i can return in route the best way i got .
-                string path_to_route = path + to_string(id);
-                prot_msg route_back(msg_id++, id, a.src_id, 0, 32, path_to_route);
-                //mysend(route_back);
+                string path_to_route = addZero(id) + temp_route[final_dest];
+                string len = addZero(temp_len[final_dest] + 1);
+                string m = addZero(discover_pack.msg_id) + len + path_to_route;
+                prot_msg route_back(msg_id++, id, discover_pack.src_id, 0, 16, m);
+                string v = discover_pack.msgToStr();
+                cout << v << endl;
+                mysend(route_back);
+
+                //need to remove discover from saved discover bug i dont know why
+                //remove(recived[discover_pack.msg_id].begin(), recived[discover_pack.msg_id].end() ,v);
             }
         }
+        //else pass route
 
         return 0;
     }
+
+    int handle_route(prot_msg p)
+    {
+        vector<string> temp_d;
+
+        //get id of discover .
+        int id_origin = remove_zero_stoi(p.payload.substr(0, 4));
+        //get final dest
+        string final_d = p.payload.substr(p.payload.length() - 4, 4);
+        int final_dest = (stoi(final_d));
+        int my_search = (count(my_disco.begin(), my_disco.end(), id_origin));
+        //if its my route send it .
+        if (my_search)
+            handle_route_func(sent[id_origin], p, 1, final_dest);
+
+        for (string msg : recived[id_origin])
+        {
+            prot_msg a(msg);
+            //i check if this is a discover to my final dest. so if found what i wanted.
+            if ((a.func_id == 8) && remove_zero_stoi(a.payload) == final_dest)
+            {
+                cout << "this is the msg with id_origin lets check if it discover" << endl;
+                a.print();
+                // temp_d.push_back(msg);
+                handle_route_func(a, p, 0, final_dest);
+            }
+        }
+        //remove descover that was taken care
+        // for(string msg:temp_d){
+        //     remove(recived[id_origin].begin(), recived[id_origin].end() ,msg);
+        //       }
+
+        return 0;
+    }
+
     int handle(prot_msg p)
     {
 
@@ -373,7 +421,7 @@ public:
 
         if (p.func_id == 16)
         {
-
+            cout << "i entered 8 " << endl;
             handle_route(p);
         }
 
@@ -404,7 +452,7 @@ public:
         {
 
             cout << "i'l go search..." << endl;
-            send_dicovers(final_dest, "");
+            send_dicovers(final_dest, "", p.src_id);
         }
         else
         {
@@ -417,7 +465,7 @@ public:
         return 0;
     }
 
-    void send_dicovers(int dest, string flag)
+    void send_dicovers(int dest, string flag, int dad)
     {
 
         count_discovers[dest] = 0;
@@ -426,22 +474,45 @@ public:
 
         for (auto const &x : sib)
         {
-            cout << "i got sibs to search ..." << endl;
-            prot_msg msg(msg_id++, id, x.first, 0, 8, to_string(dest));
-            if (mysend(msg, x.second) != -1)
+            if (x.first != dad)
             {
-                count_discovers[dest] = count_discovers[dest] + 1;
-            }
+                cout << "i got sibs to search ..." << endl;
+                prot_msg msg(msg_id++, id, x.first, 0, 8, addZero(dest));
 
-            //i need to know my when i started dicovers
-            if (flag == "my")
-            {
-                my_disco.push_back(msg.msg_id);
-            }
+                //only if send sucseed
+                if (mysend(msg, x.second) != -1)
+                {
+                    count_discovers[dest] = count_discovers[dest] + 1;
+                }
 
-            // cout<<"number of discover sent : "<<count_discovers<<endl;
-            color = 1;
+                //i need to know my when i started dicovers
+                if (flag == "my")
+                {
+                    my_disco.push_back(msg.msg_id);
+                }
+
+                // cout<<"number of discover sent : "<<count_discovers<<endl;
+                color = 1;
+            }
         }
     }
-    //////////////////////////////HANDLE ROUTE///////////////
+    //////////////////////////////BROADCAST///////////////
+    //func_id=128
+    //4 byts of payload the origin sender,
+    //otherpayload - message
+    //terminated: 4 byters 0001, 4 bytes teminated_id. 2 was terminated payload=00010002.
+    void send_broadcast(prot_msg p)
+    {
+        for (auto const &x : sib)
+        {
+
+            cout << "i got sibs to search ..." << endl;
+
+            //only if send sucseed
+            if (mysend(p, x.second) != -1)
+            {
+                cout << "broadcast has been sent" << endl;
+            }
+        }
+    }
 };
