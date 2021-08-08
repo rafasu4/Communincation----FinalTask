@@ -11,4 +11,5 @@ std::string addZero( int i);
 int remove_zero_stoi(std::string s);
 
 //connect,127.0.0.1:5001
+//setid,1
 #endif
