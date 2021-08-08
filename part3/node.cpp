@@ -18,12 +18,12 @@
 #define MAX 1000
 using namespace std;
 
-struct node_data
-{
+// struct node_data
+// {
 
-    int id, ip, port;
-    node_data(int id, int ip, int port) : id(id), ip(ip), port(port) {}
-};
+//     int id, ip, port;
+//     node_data(int id, int ip, int port) : id(id), ip(ip), port(port) {}
+// };
 
 class node
 {
@@ -37,10 +37,14 @@ public:
     map<int, string> temp_route;
     map<int, int> temp_len;
     map<int, vector<string>> recived;
+    /*Represents a path from one node to another. Key - the destination, Value - path builds from nodes to dest.*/
+    map<int, vector<int>> path;
+    vector<prot_msg> wait_to_send; //Map that holds messages waiting for a path. Key - discover msg, Value - msg to be sent
     int id;
-
     int color = 0;
-    vector<int> my_disco;
+    vector<int>
+        my_disco;
+    vector<prot_msg> relayed;
 
     /*Default constructor.*/
     node() : id(-1), msg_id(0) {}
@@ -48,6 +52,7 @@ public:
     /*Receives input from user.*/
     void mysend(prot_msg p)
     {
+        cout << p.dest_id << endl;
         mysend(p, sib[p.dest_id]);
     }
 
@@ -55,6 +60,7 @@ public:
     {
         if (fd < 3)
         {
+            cout << "fd: " << fd<<endl;
             cout << "bad fd in send" << endl;
         }
 
@@ -264,64 +270,90 @@ public:
 
         else if (action == "setid")
         {
-            this->setid(stoi(out[1]));
+            if (stoi(out[1]) > 0)
+            {
+                this->setid(stoi(out[1]));
+            }
+            else
+            {
+                cout << "Invalid input" << endl;
+                cin >> s;
+                user_input(s);
+            }
         }
 
         else if (action == "send")
         {
             string len = addZero(stoi(out[2]));
-            cout << stoi(out[2]) << len << endl;
             string r = out[3].substr(0, stoi(out[2]));
             prot_msg msg(msg_id++, id, stoi(out[1]), 0, 32, len + r);
-
+            //if node doesn't have destination as sibling - discover
             if (sib.find(msg.dest_id) == sib.end())
             {
+                wait_to_send.push_back(msg);
                 cout << "searchig a way ..." << endl;
                 send_dicovers(msg.dest_id, "my", -1);
+                //should return a path
             }
             else
             {
                 mysend(msg);
             }
         }
-            // else if(action == "relay"){
-            //     string dest = addZero(stoi(out[1]));
-            //     string num_of_msgs = addZero(stoi(out[2]));
-            //     relay(dest, num_of_msgs );
-            // }
-
-        
+        else
+        {
+            cout << "Invalid input" << endl;
+            cin >> s;
+            user_input(s);
+        }
     }
 
-    void relay(string dest, prot_msg relay_msg, prot_msg msg)
+    void relay(prot_msg relay_msg)
     {
-        int ttl = relay_msg.trail;
-        int send_to = stoi(dest);
-        //if there are no more relaying and current node isn't connected to dest
-        if(ttl == 1 && !sib.count(send_to) ){ cout << "nack" <<endl;}
-        else{
-            //if this is the last relaying
-            if(ttl == 1){
-                this->mysend(msg);
+        bool flag = flag;
+        int origin = relay_msg.src_id; //the node that started the relay chain
+        vector<prot_msg>::iterator it = relayed.begin();
+        //go over all the saved relay msgs received
+        while (it != relayed.end())
+        {
+            //if the it has the same source and the msg's ids are Consecutive - there is a match
+            if (it->src_id == origin && it->msg_id == relay_msg.msg_id - 1)
+            {
+                string payload = it->payload;
+                string next_in_line = payload.substr(0, 4);                           //getting the last part of the payload - the next node to relay
+                payload = payload.substr(4,payload.length()); //removing the next node to realy from the path//updating the path
+                prot_msg relay_to_next_in_line(it->msg_id, origin, stoi(next_in_line), it->trail, 64, payload);
+                cout<<"Relay massage to: "<<relay_to_next_in_line.dest_id<<endl;
+                mysend(relay_to_next_in_line);
+                //if the received msg has more than one fragment
+                if (it->trail > 1)
+                {
+                    it->trail--;
+                }
+                //the last fragment of msg is received
+                else
+                {
+                    it = relayed.erase(it); //remove from need to relayed msg
+                }
+                mysend(relay_msg, sib[stoi(payload.substr(4,8))]);
+                flag = true;
+                it = relayed.end();
             }
-            else{
-                relay_msg.trail--;
-                string payload = relay_msg.payload;
-                string next_in_line = payload.substr(payload.length() - 4);//getting the last part of the payload - the next node to relay
-                payload = payload.substr(0,payload.length() - 4);//removing the next node to realy from the path
-                relay_msg.payload = payload;
-                relay_msg.dest_id =(stoi(next_in_line));
-                mysend(relay_msg);
-                mysend(msg);
-            }
+        }
+        //if no match found for the received msg
+        if (!flag)
+        {
+
+            prot_msg nack(msg_id++, id, relay_msg.src_id, 0, 2, to_string(relay_msg.msg_id));
+            mysend(nack);
         }
     }
 
     int handle_route_func(prot_msg discover_pack, prot_msg route_pack, int flag_rly, int final_dest)
     {
 
-        //sum len.
-        string path = route_pack.payload.substr(8);
+        int discover_id = stoi(route_pack.payload.substr(0, 4));
+        string path = route_pack.payload.substr(4);
         int path_len = stoi(route_pack.payload.substr(4, 4));
         if (path_len < temp_len[final_dest] && path_len != 0)
         {
@@ -333,13 +365,36 @@ public:
 
         if (count_discovers[final_dest] == 0)
         {
-            //if i"m the root go relly the path!
+            //if i"m the root go relay the path!
             if (flag_rly)
             {
 
                 cout << "i found the way to :" << final_dest << endl;
                 cout << path << endl;
-                cout << "go relly it! " << endl;
+                //if the returned path is zero - no path has been found
+                if (stoi(path) == 0)
+                {
+                    cout << "nack" << endl;
+                }
+                else
+                {
+                    cout << "Relaying and massaging... " << endl;
+                    for(auto& el : wait_to_send){
+                        if(el.dest_id == stoi(path.substr(path.length() - 4))){
+                            prot_msg msg = el;
+                            prot_msg relay(msg_id++, this->id, stoi(path.substr(4,4)), msg.trail, 64, path.substr(8));
+                            cout <<"Relay mssg: "<<endl;
+                            relay.print();
+                            mysend(relay);
+                            msg.msg_id = msg_id++;
+                            cout <<"Mssg: "<<endl;
+                            msg.print();
+                            mysend(msg, sib[stoi(path.substr(4,4))]);
+                            break;
+                        }
+                    }
+                    
+                }
             }
             //if i"m not the root pass it
             else
@@ -397,6 +452,7 @@ public:
         return 0;
     }
 
+    /*Handles hhe received massage by its function id.*/
     int handle(prot_msg p)
     {
 
@@ -405,31 +461,47 @@ public:
             cout << "emptybuffer" << endl;
             return 0;
         }
+        //ack received
         if (p.func_id == 1)
         {
+            p.print();
             //ack
         }
+        //nack received
         if (p.func_id == 2)
         {
             //nack
         }
+        //discover received
         if (p.func_id == 8)
         {
 
             handle_discover(p);
         }
-
-        if (p.func_id == 16)
+        //route received - a path returned
+        else if (p.func_id == 16)
         {
             cout << "i entered 8 " << endl;
             handle_route(p);
         }
-
-        if (p.func_id == 32)
+        //send received
+        else if (p.func_id == 32)
         {
-
-            prot_msg msg(msg_id++, id, p.src_id, 0, 1, to_string(p.msg_id));
-            mysend(msg);
+            //if im the dest - send ack back
+            if (p.dest_id == this->id)
+            {
+                p.print();
+                prot_msg msg(msg_id++, id, p.src_id, 0, 1, to_string(p.msg_id));
+                mysend(msg);
+            }
+            else
+            {
+                this->relay(p);
+            }
+        }
+        else if (p.func_id == 64)
+        {
+            relayed.push_back(p);
         }
         return 0;
     }
@@ -478,7 +550,6 @@ public:
             {
                 cout << "i got sibs to search ..." << endl;
                 prot_msg msg(msg_id++, id, x.first, 0, 8, addZero(dest));
-
                 //only if send sucseed
                 if (mysend(msg, x.second) != -1)
                 {
