@@ -321,7 +321,7 @@ public:
             {
                 string payload = it->payload;
                 string next_in_line = payload.substr(0, 4);                           //getting the last part of the payload - the next node to relay
-                payload = payload.substr(4,payload.length()); //removing the next node to realy from the path//updating the path
+                payload = payload.substr(4); //removing the next node to realy from the path//updating the path
                 prot_msg relay_to_next_in_line(it->msg_id, origin, stoi(next_in_line), it->trail, 64, payload);
                 cout<<"Relay massage to: "<<relay_to_next_in_line.dest_id<<endl;
                 mysend(relay_to_next_in_line);
@@ -335,29 +335,31 @@ public:
                 {
                     it = relayed.erase(it); //remove from need to relayed msg
                 }
-                mysend(relay_msg, sib[stoi(payload.substr(4,8))]);
+                mysend(relay_msg, sib[stoi(next_in_line)]);
                 flag = true;
                 it = relayed.end();
+                
             }
+            else{it++;}
         }
         //if no match found for the received msg
-        if (!flag)
-        {
+        // if (!flag)
+        // {
 
-            prot_msg nack(msg_id++, id, relay_msg.src_id, 0, 2, to_string(relay_msg.msg_id));
-            mysend(nack);
-        }
+        //     prot_msg nack(msg_id++, id, relay_msg.src_id, 0, 2, to_string(relay_msg.msg_id));
+        //     mysend(nack);
+        // }
     }
 
     int handle_route_func(prot_msg discover_pack, prot_msg route_pack, int flag_rly, int final_dest)
     {
 
         int discover_id = stoi(route_pack.payload.substr(0, 4));
-        string path = route_pack.payload.substr(4);
+        string path = route_pack.payload.substr(8);
         int path_len = stoi(route_pack.payload.substr(4, 4));
         if (path_len < temp_len[final_dest] && path_len != 0)
         {
-            cout << "i entered 3 " << endl;
+            
             temp_len[final_dest] = path_len;
             temp_route[final_dest] = path;
         }
@@ -379,17 +381,18 @@ public:
                 else
                 {
                     cout << "Relaying and massaging... " << endl;
+                   
                     for(auto& el : wait_to_send){
-                        if(el.dest_id == stoi(path.substr(path.length() - 4))){
+                        if(el.dest_id == final_dest){
                             prot_msg msg = el;
-                            prot_msg relay(msg_id++, this->id, stoi(path.substr(4,4)), msg.trail, 64, path.substr(8));
+                            prot_msg relay(msg_id++, id, stoi(path.substr(0,4)), msg.trail, 64, path.substr(4));
                             cout <<"Relay mssg: "<<endl;
                             relay.print();
                             mysend(relay);
                             msg.msg_id = msg_id++;
                             cout <<"Mssg: "<<endl;
                             msg.print();
-                            mysend(msg, sib[stoi(path.substr(4,4))]);
+                            mysend(msg, sib[stoi(path.substr(0,4))]);
                             break;
                         }
                     }
