@@ -21,25 +21,32 @@ using namespace std;
 class node
 {
 public:
-    // Data Members
+    /*Fields*/
+    /*Listener socket.*/
     int def_sock = 0;
+    /*Messages counter.*/
     int msg_id;
+    /*Holds the id of neighbors nodes as key, and their socket FD as value.*/
     map<int, int> sib;
+    /*History of all sent messages.*/
     map<int, string> sent;
+    /*Number of times this node send discover. key - destination node, value - number of discover to this node.*/
     map<int, int> count_discovers;
+    /**/
     map<int, string> temp_route;
     map<int, int> temp_len;
-    map<int, vector<string>> recived;
+    map<int, vector<string>> received;
     /*Represents a path from one node to another. Key - the destination, Value - path builds from nodes to dest.*/
     map<int, vector<int>> path;
-    /*Map that holds messages waiting for a path. Key - discover msg, Value - msg to be sent*/
+    /*Map that holds messages waiting for a path. Key - discover msg, Value - msg to be sent.*/
     vector<prot_msg> wait_to_send;
+    /*This node id.*/
     int id;
     int color = 0;
-    vector<int>
-        my_disco;
+    vector<int> my_disco;
     vector<prot_msg> relayed;
-    /*Vector of pair which saves massages needed to be acked - Key - massage id, Value - node id.*/
+    vector<string> broadcast;
+    /*Holds info to whom we need send a an ack after relaying - where Key - massage id, Value - source node.*/
     vector<pair<int, int>> ack_to_relay;
 
     /*Default constructor.*/
@@ -83,6 +90,16 @@ public:
             cout << "nack" << endl;
         if (a == 0)
         {
+            //remove from monitor
+            remove_fd(fd);
+            int remove_id = dele_map(fd, sib);
+            cout << "node has been termianted and deleted : " << remove_id << endl;
+            //remove from sibs
+            sib.erase(remove_id);
+            //send broadcast
+            string m = "0001" + addZero(remove_id);
+            prot_msg broad(msg_id++, id, 888, 0, 0, m);
+            // send_broadcast(broad);
 
             //need to delete socket and tell all the network .
             //need to searche in the map the key of this fd
@@ -90,7 +107,7 @@ public:
         }
         prot_msg message(buffer);
         cout << "message received!" << endl;
-        recived[message.msg_id].push_back(message.msgToStr());
+        received[message.msg_id].push_back(message.msgToStr());
         message.print();
         return message;
     }
@@ -100,10 +117,8 @@ public:
         this->id = id;
         int flag = 1;
         struct sockaddr_in server_socket;
-        int ret, i;
         int r_port1 = 5000 + id;
         char buff[1025];
-        time_t ticks;
 
         def_sock = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -175,7 +190,6 @@ public:
                  << endl;
         }
         cout << "Connection established! " << endl;
-        char buff[SIZE];
         //build msg
         prot_msg data(this->msg_id++, this->id, 0, 0, 4, "");
         mysend(data, network_socket);
@@ -213,6 +227,7 @@ public:
 
             if (ret == 0)
             {
+                bzero(buff, 1025);
                 read(ret, buff, 1025);
                 string s(buff);
                 user_input(s);
@@ -237,7 +252,6 @@ public:
             {
 
                 prot_msg message = myread(ret);
-
                 handle(message);
             }
         }
@@ -247,26 +261,71 @@ public:
     {
         vector<string> out;
         split_str(s, ',', out);
-        string action = out[0];
-        // for(string s:out)cout<<s<<endl;
-        // cout<<out.size();
-
-        if (action == "connect")
+        if (out.size() == 1)
         {
-            string ad = out[1];
-            vector<string> address;
-            split_str(ad, ':', address);
-            if (this->id == -1)
-                cout << "nack\n"
-                     << endl;
-            Connect(address[0], stoi(address[1]));
+            split_str(s,' ', out);
+            if(out[0] == "peers"){
+                peers(sib);
+            }
+            else{
+                cout <<"Invalid input"<<endl;
+            }
         }
-
-        else if (action == "setid")
+        else
         {
-            if (stoi(out[1]) > 0)
+
+            
+            string action = out[0];
+            // for(string s:out)cout<<s<<endl;
+            // cout<<out.size();
+
+            if (action == "connect")
             {
-                this->setid(stoi(out[1]));
+                string ad = out[1];
+                vector<string> address;
+                split_str(ad, ':', address);
+                if (this->id == -1)
+                    cout << "nack\n"
+                         << endl;
+                Connect(address[0], stoi(address[1]));
+            }
+
+            else if (action == "setid")
+            {
+                if (stoi(out[1]) > 0)
+                {
+                    this->setid(stoi(out[1]));
+                }
+                else
+                {
+                    cout << "Invalid input" << endl;
+                    cin >> s;
+                    user_input(s);
+                }
+            }
+
+            else if (action == "send")
+            {
+                string len = addZero(stoi(out[2]));
+                string r = out[3].substr(0, stoi(out[2]));
+                prot_msg msg(msg_id++, id, stoi(out[1]), 0, 32, len + r);
+                //if node doesn't have destination as sibling - discover
+                if (sib.find(msg.dest_id) == sib.end())
+                {
+                    wait_to_send.push_back(msg);
+                    cout << "searchig a way ..." << endl;
+                    send_dicovers(msg.dest_id, "my", -1);
+                    //should return a path
+                }
+                else
+                {
+                    mysend(msg);
+                }
+            }
+
+            else if (action == "route")
+            {
+                send_dicovers(stoi(out[1]), "my", -1);
             }
             else
             {
@@ -274,34 +333,6 @@ public:
                 cin >> s;
                 user_input(s);
             }
-        }
-
-        else if (action == "send")
-        {
-            string len = addZero(stoi(out[2]));
-            string r = out[3].substr(0, stoi(out[2]));
-            prot_msg msg(msg_id++, id, stoi(out[1]), 0, 32, len + r);
-            //if node doesn't have destination as sibling - discover
-            if (sib.find(msg.dest_id) == sib.end())
-            {
-                wait_to_send.push_back(msg);
-                cout << "searchig a way ..." << endl;
-                send_dicovers(msg.dest_id, "my", -1);
-                //should return a path
-            }
-            else
-            {
-                mysend(msg);
-            }
-        }
-        else if(action == "route"){
-            send_dicovers(stoi(out[1]), "my", -1);
-        }
-        else
-        {
-            cout << "Invalid input" << endl;
-            cin >> s;
-            user_input(s);
         }
     }
 
@@ -316,14 +347,13 @@ public:
             //if the it has the same source and the msg's ids are Consecutive - there is a match
             if (it->src_id == origin && it->msg_id == relay_msg.msg_id - 1)
             {
-                string payload = it->payload; //who sand me this relay massage
-                int src_of_relay = stoi(payload.substr(0, 4));
-                string next_in_line = payload.substr(4, 4); //getting the last part of the payload - the next node to relay
-                payload = payload.substr(4);                //removing the src of relay to update path
+                string payload = it->payload;                  //who sand me this relay massage
+                payload = payload.substr(4);                   //removing the src of relay to update path
+                string next_in_line = payload.substr(4, 4);    //getting the last part of the payload - the next node to relay
                 prot_msg relay_to_next_in_line(it->msg_id, origin, stoi(next_in_line), it->trail, 64, payload);
                 cout << "Relay massage to: " << relay_to_next_in_line.dest_id << endl;
                 mysend(relay_to_next_in_line);
-                ack_to_relay.push_back({relay_to_next_in_line.msg_id, src_of_relay});
+                // ack_to_relay.push_back({relay_to_next_in_line.msg_id, src_of_relay});
                 //if the received msg has more than one fragment
                 if (it->trail > 1)
                 {
@@ -335,7 +365,6 @@ public:
                     it = relayed.erase(it); //remove from need to relayed msg
                 }
                 mysend(relay_msg, sib[stoi(next_in_line)]);
-                flag = true;
                 it = relayed.end();
             }
             else
@@ -354,8 +383,6 @@ public:
 
     int handle_route_func(prot_msg discover_pack, prot_msg route_pack, int flag_rly, int final_dest)
     {
-
-        int discover_id = stoi(route_pack.payload.substr(0, 4));
         string path = route_pack.payload.substr(8);
         int path_len = stoi(route_pack.payload.substr(4, 4));
         if (path_len < temp_len[final_dest] && path_len != 0)
@@ -388,23 +415,25 @@ public:
                         {
                             cout << "Relaying and messaging... " << endl;
                             prot_msg msg = el;
-                            prot_msg relay(msg_id++, id, stoi(path.substr(0, 4)), msg.trail, 64, path);
+                            path = addZero(id) + path;
+                            prot_msg relay(msg_id++, id, stoi(path.substr(4, 4)), msg.trail, 64, path);
                             mysend(relay);
                             msg.msg_id = msg_id++;
-                            mysend(msg, sib[stoi(path.substr(0, 4))]);
+                            mysend(msg, sib[stoi(path.substr(4, 4))]);
                             flag = true;
                             break;
                         }
                     }
-                    if(!flag){
-                        int len = path.length()/4;
+                    if (!flag)
+                    {
+                        int len = path.length() / 4;
                         int i = 0;
-                        for (; i < len - 4; i+=4)
+                        for (; i < len - 4; i += 4)
                         {
                             cout << stoi(path.substr(i, i + 4)) << "->";
                         }
                         cout << stoi(path.substr(i, i + 4));
-                }
+                    }
                 }
             }
             //if i"m not the root pass it
@@ -431,8 +460,6 @@ public:
 
     int handle_route(prot_msg p)
     {
-        vector<string> temp_d;
-
         //get id of discover .
         int id_origin = remove_zero_stoi(p.payload.substr(0, 4));
         //get final dest
@@ -443,7 +470,7 @@ public:
         if (my_search)
             handle_route_func(sent[id_origin], p, 1, final_dest);
 
-        for (string msg : recived[id_origin])
+        for (string msg : received[id_origin])
         {
             prot_msg a(msg);
             //i check if this is a discover to my final dest. so if found what i wanted.
@@ -465,7 +492,40 @@ public:
     /*Handles hhe received massage by its function id.*/
     int handle(prot_msg p)
     {
+        if (p.dest_id == 888)
+        {
 
+            string hash = addZero(p.msg_id) + addZero(p.src_id);
+            //if you didnt recive this broadcast
+            if (std::find(broadcast.begin(), broadcast.end(), hash) == broadcast.end())
+            {
+                broadcast.push_back(hash);
+                int to_delete = stoi(p.payload.substr(4, 4));
+                cout << "checkig if terminated is my sib : " << to_delete << endl;
+                //if it your sib delete him
+                if (sib.count(to_delete) > 0)
+                {
+                    cout << to_delete << "is my sib ' i delete him and send broadcast" << endl;
+                    //remove from monitor
+                    remove_fd(sib[to_delete]);
+                    cout << "node has been termianted and deleted : " << to_delete << endl;
+                    //remove from sibs
+                    sib.erase(to_delete);
+                    //send broadcast
+
+                    send_broadcast(p);
+                }
+                else
+                {
+                    cout << "he is not my sib but i will send broadcast" << endl;
+                    send_broadcast(p);
+                }
+            }
+            else
+            {
+                cout << "already got that broadcast" << endl;
+            }
+        }
         if (p.func_id == 0)
         {
             cout << "emptybuffer" << endl;
@@ -505,7 +565,7 @@ public:
         //send received
         else if (p.func_id == 32)
         {
-            //if im the dest 
+            //if im the dest
             if (p.dest_id == this->id)
             {
                 //if the sender of this massage isn't a sibling - send ack to the sender
@@ -516,7 +576,8 @@ public:
                     {
                         if (relayer.msg_id + 1 == p.msg_id)
                         {
-                            prot_msg ack(msg_id++, id, relayer.src_id, 0, 1, to_string(relayer.msg_id));
+                            int dest = stoi(relayer.payload.substr(0, 4));
+                            prot_msg ack(msg_id++, id, dest, 0, 1, to_string(relayer.msg_id));
                             mysend(ack);
                             break;
                         }
@@ -537,6 +598,7 @@ public:
         }
         else if (p.func_id == 64)
         {
+            ack_to_relay.push_back({p.msg_id, stoi(p.payload.substr(0, 4))});
             relayed.push_back(p);
         }
         return 0;
@@ -606,17 +668,20 @@ public:
     //4 byts of payload the origin sender,
     //otherpayload - message
     //terminated: 4 byters 0001, 4 bytes teminated_id. 2 was terminated payload=00010002.
+
     void send_broadcast(prot_msg p)
     {
         for (auto const &x : sib)
         {
-
-            cout << "i got sibs to search ..." << endl;
-
-            //only if send sucseed
-            if (mysend(p, x.second) != -1)
+            if (x.first != p.src_id)
             {
-                cout << "broadcast has been sent" << endl;
+                cout << "i got sibs to search ..." << endl;
+
+                //only if send sucseed
+                if (mysend(p, x.second) != -1)
+                {
+                    cout << "broadcast has been sent" << endl;
+                }
             }
         }
     }
