@@ -39,12 +39,15 @@ public:
     map<int, vector<string>> recived;
     /*Represents a path from one node to another. Key - the destination, Value - path builds from nodes to dest.*/
     map<int, vector<int>> path;
-    vector<prot_msg> wait_to_send; //Map that holds messages waiting for a path. Key - discover msg, Value - msg to be sent
+    /*Map that holds messages waiting for a path. Key - discover msg, Value - msg to be sent*/
+    vector<prot_msg> wait_to_send; 
     int id;
     int color = 0;
     vector<int>
         my_disco;
     vector<prot_msg> relayed;
+    /*Vector of pair which saves massages needed to be acked - Key - massage id, Value - node id.*/
+    vector<pair<int,int> > ack_to_relay;
 
     /*Default constructor.*/
     node() : id(-1), msg_id(0) {}
@@ -339,6 +342,7 @@ public:
                 flag = true;
                 it = relayed.end();
             }
+            it++;
         }
         //if no match found for the received msg
         if (!flag)
