@@ -45,6 +45,7 @@ public:
     vector<int>
         my_disco;
     vector<prot_msg> relayed;
+    vector<string> broadcast;
 
     /*Default constructor.*/
     node() : id(-1), msg_id(0) {}
@@ -89,10 +90,21 @@ public:
             cout << "nack" << endl;
         if (a == 0)
         {
-
+            //remove from monitor
+            remove_fd(fd);
+            int remove_id=dele_map(fd,sib);
+            cout<<"node has been termianted and deleted : " <<remove_id<<endl; 
+            //remove from sibs
+            sib.erase(remove_id);
+            //send broadcast
+            string m="0001"+addZero(remove_id);
+            prot_msg broad(msg_id++,id,888,0,0,m);
+            // send_broadcast(broad);
+            
             //need to delete socket and tell all the network .
             //need to searche in the map the key of this fd
             return prot_msg(-1, -1, -1, -1, -1, "");
+
         }
         prot_msg message(buffer);
         cout << "message recived!" << endl;
@@ -243,7 +255,6 @@ public:
             {
 
                 prot_msg message = myread(ret);
-
                 handle(message);
             }
         }
@@ -300,12 +311,17 @@ public:
                 mysend(msg);
             }
         }
+        else if(action=="peers"){
+            peers(sib);
+        }
         else
         {
             cout << "Invalid input" << endl;
             cin >> s;
             user_input(s);
         }
+
+        
     }
 
     void relay(prot_msg relay_msg)
@@ -353,7 +369,7 @@ public:
 
     int handle_route_func(prot_msg discover_pack, prot_msg route_pack, int flag_rly, int final_dest)
     {
-
+        int flag=false;
         int discover_id = stoi(route_pack.payload.substr(0, 4));
         string path = route_pack.payload.substr(8);
         int path_len = stoi(route_pack.payload.substr(4, 4));
@@ -370,7 +386,7 @@ public:
             //if i"m the root go relay the path!
             if (flag_rly)
             {
-
+                
                 cout << "i found the way to :" << final_dest << endl;
                 cout << path << endl;
                 //if the returned path is zero - no path has been found
@@ -393,8 +409,12 @@ public:
                             cout <<"Mssg: "<<endl;
                             msg.print();
                             mysend(msg, sib[stoi(path.substr(0,4))]);
+                            flag=true;
                             break;
                         }
+                    }
+                    if(flag==false){
+                        cout << path << endl;
                     }
                     
                 }
@@ -458,7 +478,42 @@ public:
     /*Handles hhe received massage by its function id.*/
     int handle(prot_msg p)
     {
+        if(p.dest_id==888){
 
+            string hash=addZero(p.msg_id)+addZero(p.src_id);
+            //if you didnt recive this broadcast
+            if (std::find(broadcast.begin(), broadcast.end(),hash)==broadcast.end() )
+            {
+            broadcast.push_back(hash);
+            int to_delete=stoi(p.payload.substr(4,4));
+            cout<<"checkig if terminated is my sib : "<<to_delete<<endl;
+            //if it your sib delete him 
+            if (sib.count(to_delete) > 0){
+                cout<<to_delete<<"is my sib ' i delete him and send broadcast"<<endl;
+                 //remove from monitor
+                remove_fd(sib[to_delete]);
+                cout<<"node has been termianted and deleted : " <<to_delete<<endl; 
+                //remove from sibs
+                sib.erase(to_delete);
+            //send broadcast
+            
+                send_broadcast(p);
+              
+            }
+            else{
+                cout<<"he is not my sib but i will send broadcast"<<endl;
+                send_broadcast(p);
+            }
+
+        
+            
+            }
+            else{
+                 cout<<"already got that broadcast"<<endl;
+                 }
+
+
+        }
         if (p.func_id == 0)
         {
             cout << "emptybuffer" << endl;
@@ -575,11 +630,18 @@ public:
     //4 byts of payload the origin sender,
     //otherpayload - message
     //terminated: 4 byters 0001, 4 bytes teminated_id. 2 was terminated payload=00010002.
+
+
+
+  
+
+
+
     void send_broadcast(prot_msg p)
     {
         for (auto const &x : sib)
         {
-
+            if(x.first!=p.src_id){
             cout << "i got sibs to search ..." << endl;
 
             //only if send sucseed
@@ -587,6 +649,7 @@ public:
             {
                 cout << "broadcast has been sent" << endl;
             }
+        }
         }
     }
 };

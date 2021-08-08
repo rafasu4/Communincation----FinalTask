@@ -5,7 +5,7 @@
 #include <string.h>
 #include <iostream>
 #include <vector>
-
+#include <map>
 #include <string>  
 #include <vector>  
 #include <sstream> 
@@ -21,7 +21,31 @@ static int initialized = FALSE;
 static int *alloced_fds = NULL;
 static int alloced_fds_num = 0;
 
+int remove_fd(int fd){
+  cout<<"fd removed : "<<fd<<endl;
+  for(int i=0; i<alloced_fds_num; ++i)
+    {
+      if ( alloced_fds[i] == fd)
+        {
+          for (int j  = i ; j < alloced_fds_num -1; j++){
+                alloced_fds[j] = alloced_fds[j+1];
+          }
+          break;
+        }
+    }
 
+  int *tmp_alloc;
+  tmp_alloc = (int*)realloc(alloced_fds, sizeof(int)*(alloced_fds_num-1));
+  if (tmp_alloc == NULL)
+    return -1;
+
+  alloced_fds = tmp_alloc;
+  alloced_fds_num--;
+
+  FD_CLR(fd, &rfds_copy);
+
+  return 0;
+}
 static int add_fd_to_monitoring_internal(const unsigned int fd)
 {
   //realloc place for 1 more monitoring
@@ -143,4 +167,16 @@ ans=ans+c;
 int a=stoi(ans);
 return a;
 }
-         
+int dele_map(int someValue,map<int,int> someMap){
+for (auto it = someMap.begin(); it != someMap.end(); ++it){
+    if (it->second == someValue){
+        return it->first;
+    }}
+    return -1;
+}
+void peers(map<int,int> someMap){
+for (auto it = someMap.begin(); it != someMap.end(); ++it){
+  cout<<"nodeid:" <<it->first<<endl;
+}
+    
+}
