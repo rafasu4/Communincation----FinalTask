@@ -378,7 +378,7 @@ public:
             {
                 cout << path << endl;
                 //if the returned path is zero - no path has been found
-                if (stoi(path) == 0)
+                if (path.size() < 4)
                 {
                     cout << "nack" << endl;
                 }
